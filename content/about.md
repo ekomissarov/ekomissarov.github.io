@@ -4,8 +4,6 @@ date = 2026-10-30
 draft = false
 +++
 
-# About Me
-
 I specialize in data and experimentation architecture,
 with a focus on designing reliable and scalable
 experimentation platforms.

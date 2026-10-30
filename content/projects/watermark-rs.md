@@ -5,8 +5,6 @@ draft = false
 description = 'Digital watermarking experiments in Rust'
 +++
 
-# Watermark RS
-
 An experimental project exploring digital watermarking
 techniques implemented in Rust.
 
