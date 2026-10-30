@@ -2,124 +2,267 @@
 title = 'Invisible Image Watermarking'
 date = 2026-10-30
 draft = false
-description = 'Experimental invisible image watermarking implemented in Python and Rust, featuring blind extraction, error correction, and a desktop GUI.'
+description = 'An experimental invisible image watermarking system implemented in Python and Rust.'
 tags = ['Rust', 'Python', 'Image Processing', 'DCT', 'Error Correction']
+showToc = true
 +++
 
-An experimental image watermarking system implemented in **Python and Rust**, with a command-line interface and a desktop GUI.
+An experimental system for embedding and recovering invisible digital watermarks in images, implemented independently in **Python and Rust**.
 
-The project explores how short messages can be embedded into images with minimal visible changes and recovered without access to the original image.
+The project explores how short messages can be embedded into images with minimal visible distortion and subsequently recovered without access to the original image.
 
-**Source code:**
+Two implementations are available:
 
-- [Rust implementation](https://github.com/ekomissarov/watermark-rs)
-- [Python implementation](https://github.com/ekomissarov/persistent_wtrmrk)
+- **[watermark-rs](https://github.com/ekomissarov/watermark-rs)** — Rust implementation with CLI and desktop GUI.
+- **[persistent_wtrmrk](https://github.com/ekomissarov/persistent_wtrmrk)** — Python implementation with CLI.
 
-## Overview
+Both implementations use a compatible watermark format.
 
-The main engineering challenge is balancing three competing objectives:
+## Motivation
 
-- **Imperceptibility:** minimize visible changes to the original image.
-- **Robustness:** preserve the embedded information after common image transformations.
-- **Recoverability:** extract the message without requiring the original image.
+Invisible image watermarking presents an interesting engineering problem: embedding information into an image while preserving its visual appearance and maintaining the ability to recover that information after image transformations.
 
-The implementation uses frequency-domain watermarking, spatial redundancy, error-correcting codes, and synchronization signals.
+Three objectives must be balanced:
 
-The system is designed primarily as a research prototype rather than a production-ready document protection solution.
+1. **Imperceptibility** — modifications should be difficult to distinguish visually.
+2. **Robustness** — embedded information should survive common transformations such as compression, resizing, and limited geometric distortion.
+3. **Capacity** — the system should accommodate a useful amount of information without significantly compromising the first two objectives.
+
+These objectives are inherently competing. Increasing embedding strength may improve recovery but introduce visible artifacts. Increasing redundancy may improve robustness but reduce payload capacity.
+
+The project investigates these trade-offs through frequency-domain embedding, error correction, and synchronization techniques.
 
 ## How It Works
 
+The watermarking pipeline consists of several stages:
+
+```text
+                 EMBEDDING
+
+Message
+   |
+   v
+Payload Encoding
+   |
+   v
+Error Correction
+   |
+   v
+Spatial Distribution ------+
+                           |
+Original Image             |
+   |                       |
+   v                       |
+DCT Transformation         |
+   |                       |
+   +-----------------------+
+   |
+   v
+Coefficient Modification
+   |
+   v
+Inverse DCT
+   |
+   v
+Watermarked Image
+
+
+                 EXTRACTION
+
+Watermarked Image
+   |
+   v
+Synchronization
+   |
+   v
+DCT Analysis
+   |
+   v
+Bit Recovery
+   |
+   v
+Error Correction
+   |
+   v
+Payload Validation
+   |
+   v
+Recovered Message
+```
+
 ### Frequency-Domain Embedding
 
-The image is divided into 16 × 16 pixel blocks.
+The image is divided into blocks of 16 × 16 pixels.
 
-Each block is transformed using the Discrete Cosine Transform (DCT). Information is encoded by modifying the relationship between two mid-frequency coefficients.
+Each block is transformed using the **Discrete Cosine Transform (DCT)**, which represents spatial image information as a combination of frequency components.
 
-The embedding strength is adjusted according to local image characteristics.
+Instead of directly modifying pixel values, the algorithm embeds information by adjusting relationships between selected mid-frequency DCT coefficients.
 
-This content-adaptive approach attempts to avoid visually sensitive areas, such as uniform backgrounds and text-like regions.
+Conceptually, a bit can be represented by the relative magnitude of two coefficients:
 
-### Redundancy and Error Correction
+$$
+b =
+\begin{cases}
+1, & c_1 > c_2 \\
+0, & c_1 \leq c_2
+\end{cases}
+$$
 
-The watermark contains a short UTF-8 message of up to 16 bytes.
+where $c_1$ and $c_2$ are selected DCT coefficients.
 
-The message is protected using:
+The actual embedding procedure adjusts coefficient relationships with sufficient separation to improve recovery reliability.
 
-- Hamming(15,11) error-correcting codes.
-- A BLAKE2s checksum for detecting corrupted payloads.
-- A repeated spatial pattern.
-- Synchronization signals for recovering alignment.
+Mid-frequency coefficients offer a practical compromise: low-frequency modifications may become visually noticeable, while high-frequency modifications are more likely to disappear during lossy compression.
 
-These mechanisms help the decoder recover information after certain image transformations.
+### Content-Adaptive Embedding
+
+Not all image regions are equally suitable for watermarking.
+
+Uniform areas, smooth gradients, and text-like structures can be sensitive to modifications. More textured regions may tolerate stronger embedding without noticeable visual degradation.
+
+The algorithm evaluates local image characteristics and adjusts embedding strength accordingly.
+
+This approach aims to balance visual quality and robustness rather than applying a uniform modification across the entire image.
+
+### Payload Encoding and Error Correction
+
+The system supports short UTF-8 messages of up to 16 bytes.
+
+Before embedding, the payload is encoded with additional information used for error detection and recovery.
+
+The implementation uses:
+
+- **Hamming(15,11)** error-correcting codes.
+- **BLAKE2s** checksum validation.
+- Spatial redundancy across multiple image regions.
+- Synchronization signals to assist extraction.
+
+Hamming(15,11) encodes 11 data bits into 15-bit codewords, allowing correction of a single-bit error within each codeword.
+
+The checksum helps distinguish successfully recovered messages from corrupted payloads.
+
+Spatial redundancy increases the probability that enough information remains available after partial image degradation.
 
 ### Blind Extraction
 
-The decoder does not require the original image.
+The extraction algorithm does not require the original image.
 
-It searches for the watermark using frequency-domain observations and synchronization signals.
+Instead, it analyzes the frequency-domain structure of the received image and attempts to recover the embedded payload.
 
-The extraction process can compensate for some changes in scale, alignment, and rotation.
+This is known as **blind watermark extraction**.
 
-Recovery is not guaranteed for every image or transformation.
+The decoder performs synchronization, coefficient analysis, bit recovery, error correction, and payload validation.
 
-## Two Implementations
+The system includes mechanisms intended to compensate for limited changes in image alignment, scale, and rotation.
+
+However, successful recovery depends on the image content and the transformations applied after embedding.
+
+## Implementations
 
 ### Python
 
-The Python implementation provides a command-line interface for embedding and extracting watermarks.
+The Python implementation serves as an experimental reference implementation.
 
-It uses NumPy, SciPy, OpenCV, and Pillow.
+It provides command-line tools for embedding and extracting watermarks and uses a scientific computing stack that includes:
 
-The implementation also serves as a reference for cross-language compatibility testing.
+- NumPy
+- SciPy
+- OpenCV
+- Pillow
+
+Python provides a convenient environment for experimenting with signal-processing algorithms, inspecting intermediate results, and evaluating alternative approaches.
+
+Repository: **[persistent_wtrmrk](https://github.com/ekomissarov/persistent_wtrmrk)**
 
 ### Rust
 
-The Rust implementation provides:
+The Rust implementation follows the same watermark format while emphasizing performance, explicit data handling, and application-level usability.
+
+It includes:
 
 - A command-line interface.
-- Parallel processing using Rayon.
-- A desktop graphical interface built with egui.
-- Interactive image preview and zooming.
+- Parallel computation using Rayon.
+- A desktop GUI built with egui.
+- Image preview and zooming.
 - Visualization of modified image regions.
-- Background processing for computationally expensive operations.
+- Background execution of computationally intensive operations.
 
-Both implementations use a compatible watermark format with the default layout seed.
+The GUI provides an interface for embedding and extracting messages without using the command line.
+
+Repository: **[watermark-rs](https://github.com/ekomissarov/watermark-rs)**
 
 ## Cross-Language Compatibility
 
-One of the project's design goals is interoperability.
+An important design goal is interoperability between the two implementations.
 
-An image watermarked by the Python implementation can be decoded by the Rust implementation, and vice versa.
+Both use a compatible payload format and embedding layout, allowing images produced by one implementation to be processed by the other under compatible settings.
 
-The repositories include cross-language tests covering basic interoperability and selected image transformations.
+This provides an additional way to validate implementation correctness.
+
+Cross-language testing is particularly useful for detecting discrepancies in:
+
+- Binary encoding and decoding.
+- Numerical computations.
+- Pseudorandom sequence generation.
+- Image preprocessing.
+- Payload validation.
+
+Maintaining compatibility requires the two implementations to agree not only on the high-level algorithm but also on its implementation details.
 
 ## Validation
 
-The documented tests include successful recovery after:
+The repositories document experiments involving several common image transformations.
 
-- JPEG recompression.
-- Image resizing.
-- Small rotations.
-- Selected cropping operations.
+These include:
 
-These results demonstrate functionality under specific test conditions rather than general robustness guarantees.
+| Transformation | Validation scope |
+|---|---|
+| JPEG recompression | Recovery tested after lossy compression |
+| Resizing | Recovery tested after changes in image dimensions |
+| Small rotations | Recovery tested under limited angular distortion |
+| Cropping | Recovery tested under selected cropping conditions |
+| Cross-language extraction | Compatibility tested between Python and Rust |
 
-Physical print-and-scan recovery remains an open validation task.
+These results should be interpreted as experimental observations under specific conditions, not as guarantees of robustness.
+
+Recovery performance depends on image characteristics, embedding parameters, and transformation severity.
+
+A systematic benchmark across diverse image datasets would be necessary to characterize reliability more comprehensively.
 
 ## Limitations
 
-The project is experimental.
+Several limitations remain.
 
-Watermark recovery depends on image size, texture, and the severity of subsequent transformations.
+**Image dependence.** Some images provide fewer suitable regions for embedding, particularly those containing large uniform areas.
 
-Images with large uniform areas may not provide enough suitable regions for reliable embedding.
+**Geometric transformations.** Synchronization can compensate for certain transformations, but sufficiently strong distortions may prevent successful extraction.
 
-The watermark is not encrypted or cryptographically authenticated. It should not be considered proof of ownership or document authenticity.
+**Limited payload capacity.** The system prioritizes robustness over embedding large amounts of information.
+
+**Physical reproduction.** Robustness to printing, scanning, and photographing physical copies has not yet been systematically validated.
+
+**Security.** The watermark is not encrypted or cryptographically authenticated. It should not be treated as proof of image ownership, authorship, or authenticity.
+
+The system is an experimental engineering project rather than a production-ready digital rights management solution.
+
+## Future Work
+
+Potential areas for further investigation include:
+
+- Systematic robustness benchmarking.
+- Quantitative image quality evaluation using PSNR and SSIM.
+- More advanced error-correcting codes.
+- Improved synchronization under geometric transformations.
+- Performance comparisons between Python and Rust.
+- Evaluation of physical print-and-scan recovery.
+
+Of particular interest is measuring the trade-off between embedding strength, visual distortion, and extraction success rate.
 
 ## Source Code
 
-The project is available in two repositories:
+Both implementations are publicly available:
 
-**[watermark-rs — Rust CLI and GUI](https://github.com/ekomissarov/watermark-rs)**
+- **Rust:** [github.com/ekomissarov/watermark-rs](https://github.com/ekomissarov/watermark-rs)
+- **Python:** [github.com/ekomissarov/persistent_wtrmrk](https://github.com/ekomissarov/persistent_wtrmrk)
 
-**[persistent_wtrmrk — Python implementation](https://github.com/ekomissarov/persistent_wtrmrk)**
+The repositories contain implementation details, usage instructions, and available tests.
