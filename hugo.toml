@@ -8,7 +8,7 @@ enableRobotsTXT = true
 
 [params]
     author = 'Eugene Komissarov'
-    description = 'Data & Experimentation Architecture, Engineering and Research'
+    description = 'Product analytics, experimentation, causal inference, and the engineering behind reliable analytical systems.'
     defaultTheme = 'auto'
     ShowReadingTime = false 
     ShowShareButtons = false 
@@ -23,17 +23,14 @@ enableRobotsTXT = true
 [params.homeInfoParams]
     Title = 'Eugene Komissarov'
     Content = '''
-**Product Analytics · Experimentation · Data Science**
+**Product Analytics · Experimentation · Causal Inference**
 
-I work at the intersection of product analytics,
-experimental design, and data engineering.
+Exploring the statistics, engineering, and architecture
+behind reliable product experimentation.
 
-My focus is on building reliable experimentation
-processes, measuring product impact, and turning
-complex data into actionable decisions.
-
-On this website, I share technical articles,
-research notes, and engineering projects.
+I write about experimental design, statistical methods,
+causal inference, and the engineering challenges
+of building trustworthy analytical systems.
 '''
 
 # Главное меню
