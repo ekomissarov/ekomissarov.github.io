@@ -19,6 +19,13 @@ enableRobotsTXT = true
     mainSections = ['posts']
     ShowRssButtonInSectionTermList = true
 
+[markup.goldmark.extensions.passthrough]
+    enable = true
+
+[markup.goldmark.extensions.passthrough.delimiters]
+    block = [['$$', '$$']]
+    inline = [['$', '$']]
+
 # Главная страница
 [params.homeInfoParams]
     Title = 'Eugene Komissarov'

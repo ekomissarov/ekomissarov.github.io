@@ -2,3 +2,9 @@
 /resources/
 .hugo_build.lock
 .DS_Store
+
+# Local Codex instructions and skills
+/AGENTS.md
+/AGENTS.override.md
+/.agents/skills/
+/.idea/
