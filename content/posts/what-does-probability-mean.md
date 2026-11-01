@@ -1,6 +1,6 @@
 +++
 title = 'What Does Probability Mean?'
-date = 2026-10-30
+date = 2026-10-31
 draft = false
 description = 'Frequentist and Bayesian perspectives on probability, uncertainty, and statistical inference.'
 tags = ['Probability', 'Statistics', 'Frequentist Statistics', 'Bayesian Statistics']
