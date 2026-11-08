@@ -2,14 +2,14 @@
 title = 'Distributions and Descriptive Statistics'
 date = 2026-11-08
 draft = false
-description = 'Review notes on probability distributions, numerical characteristics, sample statistics, and visualization, with self-check questions and answers.'
+description = 'Review notes on probability distributions, numerical characteristics, sample statistics, and visualization.'
 tags = ['Probability', 'Statistics', 'Review Notes']
 ShowToc = true
 +++
 
 *Statistics Review Notes · Part 1*
 
-These notes are for readers who have studied introductory probability and statistics and want a compact refresher. They summarize key definitions, formulas, and conditions, followed by questions for self-check.
+These notes are for readers who have studied introductory probability and statistics and want a compact refresher. They summarize key definitions, formulas, and conditions.
 
 ## Probabilistic Model and Sample
 
@@ -27,7 +27,7 @@ Random sampling within an accessible group does not guarantee representativeness
 The **cumulative distribution function (CDF)** is defined for every random variable:
 
 $$
-F_X(x)=P(X\le x),\qquad P(a<X\le b)=F_X(b)-F_X(a).
+F_X(x)=P(X\le x),\qquad P(a\lt X\le b)=F_X(b)-F_X(a).
 $$
 
 Properties: nondecreasing, right-continuous, $0\le F_X\le1$; the limits as $x\to-\infty$ and $x\to+\infty$ are $0$ and $1$, respectively.
@@ -57,7 +57,7 @@ $$
 \qquad \sigma=\sqrt{\operatorname{Var}(X)}.
 $$
 
-Finiteness conditions: $E|X|<\infty$ for the expectation, $E(X^2)<\infty$ for the variance. The expectation and standard deviation have the same units as the variable; the variance has squared units.
+Finiteness conditions: $E|X|\lt \infty$ for the expectation, $E(X^2)\lt \infty$ for the variance. The expectation and standard deviation have the same units as the variable; the variance has squared units.
 
 | Property | Formula | Condition |
 | :--- | :--- | :--- |
@@ -70,7 +70,7 @@ The expected signed deviation $E(X-E(X))=0$, so it does not measure spread.
 
 ### Quantiles, Median, Mode
 
-- **Quantile at level $\gamma$:** $Q_\gamma=\inf\{x:F_X(x)\ge\gamma\}$, $0<\gamma<1$.
+- **Quantile at level $\gamma$:** $Q_\gamma=\inf\{x:F_X(x)\ge\gamma\}$, $0\lt \gamma\lt 1$.
 - **Median $m$:** $P(X\le m)\ge1/2$ and $P(X\ge m)\ge1/2$. It need not be unique; $Q_{0.5}$ selects one of the medians.
 - **Mode:** a most probable discrete value; for a density, a point of local maximum. There may be several modes.
 
@@ -90,16 +90,16 @@ The table gives PMFs for discrete models and PDFs for continuous models; they ar
 | Uniform $U[a,b]$ | $x\in[a,b]$ | $1/(b-a)$ | $(a+b)/2$ | $(b-a)^2/12$ |
 | Normal $N(\mu,\sigma^2)$ | $x\in\mathbb R$ | $\dfrac1{\sigma\sqrt{2\pi}}e^{-(x-\mu)^2/(2\sigma^2)}$ | $\mu$ | $\sigma^2$ |
 
-Parameters: $0<p<1$, $n$ is a positive integer, $\lambda,r>0$, $a<b$, $\mu\in\mathbb R$, $\sigma>0$. Binomial coefficient: $\binom nk=n!/[k!(n-k)!]$.
+Parameters: $0\lt p\lt 1$, $n$ is a positive integer, $\lambda,r>0$, $a\lt b$, $\mu\in\mathbb R$, $\sigma>0$. Binomial coefficient: $\binom nk=n!/[k!(n-k)!]$.
 
 **Relationships and interpretations:**
 
 - Bernoulli describes a single binary outcome; the sum of $n$ independent $\operatorname{Bern}(p)$ variables follows $\operatorname{Bin}(n,p)$.
 - Geometric describes the trial number of the first success in independent trials with constant success probability $p$. If failures before the first success are counted instead, the expectation is $(1-p)/p$.
 - In a homogeneous Poisson process with rate $r$, the event count over time $t$ follows $\operatorname{Pois}(rt)$, and interarrival times follow $\operatorname{Exp}(r)$. **$r$ is the event rate; $\lambda=rt$ is the expected event count.**
-- Exponential distribution: $F(x)=1-e^{-rx}$ for $x\ge0$, $F(x)=0$ for $x<0$. Memorylessness: $P(X>s+t\mid X>s)=P(X>t)$, $s,t\ge0$. The scale $\beta=1/r$ is the reciprocal of the rate.
+- Exponential distribution: $F(x)=1-e^{-rx}$ for $x\ge0$, $F(x)=0$ for $x\lt 0$. Memorylessness: $P(X>s+t\mid X>s)=P(X>t)$, $s,t\ge0$. The scale $\beta=1/r$ is the reciprocal of the rate.
 
-**Central limit theorem:** for i.i.d. observations with $E(X_i)=\mu$ and $0<\operatorname{Var}(X_i)=\sigma^2<\infty$:
+**Central limit theorem:** for i.i.d. observations with $E(X_i)=\mu$ and $0\lt \operatorname{Var}(X_i)=\sigma^2\lt \infty$:
 
 $$
 \frac{\sum_{i=1}^nX_i-n\mu}{\sigma\sqrt n}\xrightarrow{d}N(0,1).
@@ -168,69 +168,3 @@ $h>0$ is the bandwidth; $K$ is a nonnegative kernel integrating to $1$, such as 
 - **Separate points:** observations beyond the fences; not necessarily data errors.
 
 The CDF shows cumulative proportions, histograms and KDE show density shape, and boxplots show center, spread, and extreme values. Distributions with the same mean and variance can have different shapes.
-
-## Self-check
-
-Try answering each question before opening the explanation.
-
-### 1. Can a probability density exceed 1?
-
-If $X\sim U[0,0.5]$, what is its density on that interval, and what is $P(0\le X\le0.25)$?
-
-{{< review-answer >}}
-The density is $f_X(x)=2$ on $[0,0.5]$. The probability is the area under the density:
-
-$$
-P(0\le X\le0.25)=\int_0^{0.25}2\,dx=0.5.
-$$
-
-A density value can exceed 1; the integral over the entire support must equal 1. For this distribution, the probability of any individual point is zero.
-{{< /review-answer >}}
-
-### 2. Does a larger sample remove selection bias?
-
-Suppose you randomly sample 100,000 users from those who opened a promotional email. Can you use their purchase rate to estimate the purchase rate of all users without further assumptions?
-
-{{< review-answer >}}
-No. Random sampling within email openers represents that group, but opening the email may be related to purchase behavior. A larger sample can estimate the purchase rate among openers more precisely while retaining bias relative to the full population.
-
-Generalizing requires additional assumptions about selection, or a sampling design that covers the target population.
-{{< /review-answer >}}
-
-### 3. Why divide by $n-1$ when estimating variance?
-
-For an i.i.d. sample of size $n\ge2$ with finite variance $\sigma^2$, why is the variance calculated with divisor $n$ biased? Does the corrected estimate always lie closer to $\sigma^2$?
-
-{{< review-answer >}}
-Estimating the mean from the same sample makes the squared deviations smaller on average than deviations from the true mean. Specifically,
-
-$$
-E\!\left[\sum_{i=1}^n(X_i-\bar X)^2\right]=(n-1)\sigma^2.
-$$
-
-Dividing by $n-1$ therefore gives an unbiased variance estimator. Unbiasedness concerns the average across repeated samples: the corrected estimate need not be closer to the true variance in a particular sample.
-{{< /review-answer >}}
-
-### 4. What becomes approximately normal under the CLT?
-
-Suppose $X_1,\ldots,X_n$ are i.i.d. exponential waiting times with rate $r>0$. Does increasing $n$ make the individual waiting times approximately normal?
-
-{{< review-answer >}}
-No. Each waiting time still has an exponential distribution. The CLT concerns the centered and scaled sum or sample mean. Since $\mu=1/r$ and $\sigma=1/r$,
-
-$$
-\frac{\sqrt n(\bar X-1/r)}{1/r}\xrightarrow{d}N(0,1).
-$$
-
-For sufficiently large $n$, the sample mean can be approximated by a normal distribution with mean $1/r$ and variance $1/(nr^2)$. The quality of the approximation depends on the sample size and the part of the distribution being approximated.
-{{< /review-answer >}}
-
-### 5. How do unequal histogram bins affect interpretation?
-
-One bin has width 1 and contains 20 observations; another has width 2 and contains 30. If these are all 50 observations, which bin has greater density, and which contains more probability mass?
-
-{{< review-answer >}}
-The density heights are $20/(50\cdot1)=0.4$ and $30/(50\cdot2)=0.3$. The first bin has greater density.
-
-Their areas are $0.4\cdot1=0.4$ and $0.3\cdot2=0.6$. The second bin contains more probability mass. With unequal bin widths, compare areas to compare the proportions of observations.
-{{< /review-answer >}}
