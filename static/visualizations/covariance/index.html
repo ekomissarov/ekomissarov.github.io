@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Covariance playground</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<style>
+  :root {
+    --bg: #fafafc; --ink: #1e1e28; --muted: #5a5a68; --card: #ffffff;
+    --pos: #3caa5a; --neg: #d24646; --pt: #2850c8; --line: #dcdce6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap {
+    max-width: 1100px; margin: 0 auto; padding: 16px;
+    display: grid; grid-template-columns: minmax(0, 640px) minmax(300px, 1fr); gap: 24px;
+  }
+  .head { grid-column: 1 / -1; }
+  .live { display: none; font-size: 13px; font-variant-numeric: tabular-nums; margin-top: 6px; }
+  @media (max-width: 860px) {
+    .wrap { display: block; padding: 0 12px 16px; }
+    .wrap > * { margin-bottom: 16px; }
+    .head { padding-top: 12px; margin-bottom: 8px; }
+    h1 { font-size: 18px; }
+    .sub { font-size: 13px; }
+    /* plot stays pinned at the top while the sliders scroll underneath */
+    .plotcol {
+      position: sticky; top: 0; z-index: 10; background: var(--bg);
+      padding: 6px 0 8px; margin-bottom: 12px; border-bottom: 1px solid var(--line);
+    }
+    canvas { width: min(100%, 46vh); width: min(100%, 46dvh); margin: 0 auto; }
+    .legend { font-size: 11px; gap: 2px 12px; justify-content: center; margin-top: 6px; }
+    .live { display: block; text-align: center; }
+    input[type=range] { height: 34px; }
+    button { min-height: 42px; touch-action: manipulation; }
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+  canvas {
+    width: 100%; aspect-ratio: 1 / 1; display: block; background: #fff;
+    border: 2px solid var(--ink); border-radius: 4px; cursor: crosshair;
+    touch-action: auto; /* touch dragging of points is handled by touch events below */
+    -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 8px; font-size: 14px; color: var(--muted); }
+  .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin-right: 5px; }
+  .sq { display: inline-block; width: 12px; height: 12px; vertical-align: -1px; margin-right: 5px; border: 1px solid; }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+  .slider { margin-bottom: 12px; }
+  .slider label { display: flex; justify-content: space-between; font-size: 15px; }
+  .slider output { font-variant-numeric: tabular-nums; font-weight: 600; }
+  input[type=range] { width: 100%; accent-color: var(--pt); }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 15px; }
+  th, td { padding: 4px 6px; text-align: right; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child { text-align: left; }
+  th { font-weight: 600; color: var(--muted); font-size: 13px; }
+  td.true { color: #8a5a00; }
+  td.samp { color: var(--pt); font-weight: 600; }
+  .big { font-size: 24px; font-weight: 700; margin: 10px 0 2px; font-variant-numeric: tabular-nums; }
+  .row { font-variant-numeric: tabular-nums; margin: 2px 0; }
+  .pos { color: var(--pos); font-weight: 600; }
+  .neg { color: var(--neg); font-weight: 600; }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; }
+  button {
+    font: inherit; padding: 6px 12px; border: 1px solid var(--line); background: #fff;
+    border-radius: 6px; cursor: pointer;
+  }
+  button:hover { background: #f0f0f6; }
+  ul { margin: 8px 0 0; padding-left: 20px; color: var(--muted); font-size: 14px; }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 12px 0; }
+  .formula { grid-column: 1 / -1; }
+  .formula .katex-display { margin: 10px 0; overflow-x: auto; overflow-y: hidden; }
+  .formula p { margin: 6px 0; color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <h1>Covariance as the average signed area</h1>
+    <p class="sub">Drag the points with a mouse or finger. Each point spans a rectangle with the sample center.</p>
+  </div>
+  <div class="plotcol">
+    <canvas id="cv"></canvas>
+    <div class="live" id="live"></div>
+    <div class="legend">
+      <span><span class="dot" style="background:#ffa000;border:2px solid #1e1e28;width:10px;height:10px"></span>sample mean (x̄, ȳ)</span>
+      <span><span class="dot" style="border:2px dashed #8a5a00;width:10px;height:10px"></span>true mean (μ<sub>X</sub>, μ<sub>Y</sub>)</span>
+      <span><span class="sq" style="background:rgba(60,170,90,.25);border-color:#3caa5a"></span>positive area</span>
+      <span><span class="sq" style="background:rgba(210,70,70,.25);border-color:#d24646"></span>negative area</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>True parameters (data generator)</h2>
+    <div class="slider"><label>true correlation ρ <output id="o_rho"></output></label>
+      <input id="rho" type="range" min="-1" max="1" step="0.01" value="0.7"></div>
+    <div class="slider"><label>true std of X, σ<sub>X</sub> <output id="o_sx"></output></label>
+      <input id="sx" type="range" min="0.5" max="5" step="0.05" value="2.5"></div>
+    <div class="slider"><label>true std of Y, σ<sub>Y</sub> <output id="o_sy"></output></label>
+      <input id="sy" type="range" min="0.5" max="5" step="0.05" value="2.5"></div>
+    <div class="slider"><label>true mean of X, μ<sub>X</sub> <output id="o_mx"></output></label>
+      <input id="mx" type="range" min="-5" max="5" step="0.05" value="0"></div>
+    <div class="slider"><label>true mean of Y, μ<sub>Y</sub> <output id="o_my"></output></label>
+      <input id="my" type="range" min="-5" max="5" step="0.05" value="0"></div>
+
+    <hr>
+    <h2>True vs. sample (n = <span id="n"></span>)</h2>
+    <table>
+      <thead><tr><th></th><th>true</th><th>sample</th></tr></thead>
+      <tbody>
+        <tr><td>mean of X</td><td class="true" id="t_mx"></td><td class="samp" id="s_mx"></td></tr>
+        <tr><td>mean of Y</td><td class="true" id="t_my"></td><td class="samp" id="s_my"></td></tr>
+        <tr><td>std of X</td><td class="true" id="t_sx"></td><td class="samp" id="s_sx"></td></tr>
+        <tr><td>std of Y</td><td class="true" id="t_sy"></td><td class="samp" id="s_sy"></td></tr>
+        <tr><td>cov(X, Y)</td><td class="true" id="t_cov"></td><td class="samp" id="s_cov"></td></tr>
+        <tr><td>corr(X, Y)</td><td class="true" id="t_corr"></td><td class="samp" id="s_corr"></td></tr>
+      </tbody>
+    </table>
+
+    <div class="big" id="cov"></div>
+    <div class="row pos" id="pos"></div>
+    <div class="row neg" id="neg"></div>
+    <div class="row">sample cov = positive part + negative part</div>
+
+    <div class="btns">
+      <button id="b_rects">Rectangles: on</button>
+      <button id="b_units">Units of X: meters</button>
+      <button id="b_resample">New sample</button>
+    </div>
+
+    <ul>
+      <li>True values come from the sliders; sample values are computed from the points on screen, so they differ by random noise.</li>
+      <li><b>Shifting</b> the cloud does not change covariance: it is measured from the center.</li>
+      <li><b>Spread</b> changes covariance even if the relationship (corr) stays the same.</li>
+      <li><b>Centimeters instead of meters</b>: cov ×100, corr unchanged.</li>
+      <li>Drag one point far into a red quadrant: one outlier can flip the picture.</li>
+    </ul>
+  </div>
+
+  <div class="panel formula">
+    <h2>The idea behind the formula</h2>
+    <div id="f1"></div>
+    <div id="f2"></div>
+    <p>
+      Each point <i>i</i> and the sample center (x̄, ȳ) are opposite corners of a rectangle with sides
+      |x<sub>i</sub> − x̄| and |y<sub>i</sub> − ȳ|. The product (x<sub>i</sub> − x̄)(y<sub>i</sub> − ȳ) is that rectangle's area
+      with a sign: <span class="pos">+ (green)</span> when both deviations have the same sign,
+      <span class="neg">− (red)</span> when they differ. Covariance is the average of these signed areas.
+      If Y = X every rectangle becomes a square and covariance turns into the variance.
+    </p>
+    <div id="f3"></div>
+    <p>
+      Dividing by σ<sub>X</sub>σ<sub>Y</sub> removes the units and gives correlation, which always lies between −1 and 1.
+      The sliders set the <i>true</i> ρ, σ and μ; the points are a random sample from that distribution,
+      so the sample values on the panel only approximate them (typical error of corr is about 1/√n).
+    </p>
+  </div>
+</div>
+
+<script>
+(() => {
+  const R = 10, N = 40;
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const $ = id => document.getElementById(id);
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  const rnd = mulberry32(7);
+  const gauss = () => Math.sqrt(-2 * Math.log(1 - rnd())) * Math.cos(2 * Math.PI * rnd());
+
+  let zs = [], pts = [];
+  let showRects = true, unitK = 1, dragging = -1, S = 640;
+
+  const resample = () => { zs = Array.from({ length: N }, () => [gauss(), gauss()]); };
+  const val = id => parseFloat($(id).value);
+  const f = (v, d = 2) => (Object.is(v, -0) ? 0 : v).toFixed(d);
+
+  function regenerate() {
+    const rho = val('rho'), sx = val('sx'), sy = val('sy'), mx = val('mx'), my = val('my');
+    const k = Math.sqrt(Math.max(0, 1 - rho * rho));
+    pts = zs.map(([z1, z2]) => [mx + sx * z1, my + sy * (rho * z1 + k * z2)]);
+    ['rho', 'sx', 'sy', 'mx', 'my'].forEach(id => { $('o_' + id).textContent = f(val(id)); });
+    render();
+  }
+
+  const toS = (x, y) => [(x + R) / (2 * R) * S, (R - y) / (2 * R) * S];
+  const toD = (px, py) => [px / S * 2 * R - R, R - py / S * 2 * R];
+
+  // sample statistics, X expressed in the currently selected units (x * unitK)
+  function stats() {
+    const n = pts.length;
+    const xs = pts.map(p => p[0] * unitK), ys = pts.map(p => p[1]);
+    const mx = xs.reduce((a, b) => a + b, 0) / n, my = ys.reduce((a, b) => a + b, 0) / n;
+    let cov = 0, vx = 0, vy = 0, pos = 0, neg = 0;
+    for (let i = 0; i < n; i++) {
+      const dx = xs[i] - mx, dy = ys[i] - my, p = dx * dy;
+      cov += p; vx += dx * dx; vy += dy * dy;
+      if (p > 0) pos += p; else neg += p;
+    }
+    cov /= n; vx /= n; vy /= n; pos /= n; neg /= n;
+    const corr = vx > 0 && vy > 0 ? cov / Math.sqrt(vx * vy) : 0;
+    return { n, mx, my, cov, vx, vy, corr, pos, neg };
+  }
+
+  function resize() {
+    const rect = cv.getBoundingClientRect();
+    S = rect.width;
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = Math.round(S * dpr); cv.height = Math.round(S * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    render();
+  }
+
+  function line(a, b) { ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }
+
+  function render() {
+    const st = stats();
+    const smx = st.mx / unitK, smy = st.my;           // sample center in data coordinates
+    ctx.clearRect(0, 0, S, S);
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, S, S);
+
+    ctx.lineWidth = 1; ctx.strokeStyle = '#e1e1e8';
+    for (let i = -10; i <= 10; i += 2) {
+      line(toS(i, -R), toS(i, R));
+      line(toS(-R, i), toS(R, i));
+    }
+    ctx.strokeStyle = '#9696a0'; ctx.lineWidth = 2;
+    line(toS(0, -R), toS(0, R));
+    line(toS(-R, 0), toS(R, 0));
+
+    const [cx, cy] = toS(smx, smy);
+
+    if (showRects) {
+      for (const [x, y] of pts) {
+        const [sx, sy] = toS(x, y);
+        const good = (x - smx) * (y - smy) > 0;
+        const rgb = good ? '60,170,90' : '210,70,70';
+        const l = Math.min(sx, cx), t = Math.min(sy, cy), w = Math.abs(sx - cx), h = Math.abs(sy - cy);
+        ctx.fillStyle = `rgba(${rgb},0.22)`; ctx.fillRect(l, t, w, h);
+        ctx.strokeStyle = `rgba(${rgb},0.5)`; ctx.lineWidth = 1; ctx.strokeRect(l, t, w, h);
+      }
+    }
+
+    ctx.strokeStyle = '#787882'; ctx.lineWidth = 1;
+    line([0, cy], [S, cy]); line([cx, 0], [cx, S]);
+
+    ctx.fillStyle = '#2850c8';
+    for (const [x, y] of pts) {
+      const [sx, sy] = toS(x, y);
+      ctx.beginPath(); ctx.arc(sx, sy, 5, 0, 7); ctx.fill();
+    }
+
+    // true mean: dashed hollow circle
+    const [tx, ty] = toS(val('mx'), val('my'));
+    ctx.setLineDash([4, 3]); ctx.strokeStyle = '#8a5a00'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(tx, ty, 12, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // sample mean: filled orange circle
+    ctx.fillStyle = '#ffa000'; ctx.strokeStyle = '#1e1e28'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(cx, cy, 7, 0, 7); ctx.fill(); ctx.stroke();
+
+    // panel: true values (in current units for X) vs sample values
+    const rho = val('rho'), sx = val('sx') * unitK, sy = val('sy'), mx = val('mx') * unitK, my = val('my');
+    $('n').textContent = st.n;
+    $('t_mx').textContent = 'μ_X = ' + f(mx);   $('s_mx').textContent = 'x̄ = ' + f(st.mx);
+    $('t_my').textContent = 'μ_Y = ' + f(my);   $('s_my').textContent = 'ȳ = ' + f(st.my);
+    $('t_sx').textContent = 'σ_X = ' + f(sx);   $('s_sx').textContent = 's_X = ' + f(Math.sqrt(st.vx));
+    $('t_sy').textContent = 'σ_Y = ' + f(sy);   $('s_sy').textContent = 's_Y = ' + f(Math.sqrt(st.vy));
+    $('t_cov').textContent = 'σ_XY = ' + f(rho * sx * sy);  $('s_cov').textContent = 's_XY = ' + f(st.cov);
+    $('t_corr').textContent = 'ρ = ' + f(rho); $('s_corr').textContent = 'r = ' + f(st.corr);
+
+    $('cov').textContent = `sample cov(X, Y) = ${f(st.cov)}`;
+    $('pos').textContent = `mean positive area: +${f(st.pos)}`;
+    $('neg').textContent = `mean negative area: ${f(st.neg)}`;
+    $('live').innerHTML = `true ρ = <b>${f(rho)}</b> · sample r = <b>${f(st.corr)}</b><br>` +
+      `true cov = <b>${f(rho * sx * sy)}</b> · sample cov = <b>${f(st.cov)}</b>`;
+  }
+
+  // dragging points (mouse and touch)
+  cv.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'touch') return;   // touch is handled separately below
+    const r = cv.getBoundingClientRect();
+    const px = e.clientX - r.left, py = e.clientY - r.top;
+    let best = -1, bd = 16;
+    pts.forEach(([x, y], i) => {
+      const [sx, sy] = toS(x, y);
+      const d = Math.hypot(sx - px, sy - py);
+      if (d < bd) { bd = d; best = i; }
+    });
+    dragging = best;
+    if (best >= 0) cv.setPointerCapture(e.pointerId);
+  });
+  cv.addEventListener('pointermove', e => {
+    if (dragging < 0 || e.pointerType === 'touch') return;
+    const r = cv.getBoundingClientRect();
+    const [x, y] = toD(e.clientX - r.left, e.clientY - r.top);
+    pts[dragging] = [Math.max(-R, Math.min(R, x)), Math.max(-R, Math.min(R, y))];
+    render();
+  });
+  const stop = () => { dragging = -1; };
+  cv.addEventListener('pointerup', stop);
+  cv.addEventListener('pointercancel', stop);
+
+  // Touch: block page scrolling only when a finger lands on a point,
+  // so the rest of the canvas still scrolls the page normally.
+  const touchPos = t => { const r = cv.getBoundingClientRect(); return [t.clientX - r.left, t.clientY - r.top]; };
+  cv.addEventListener('touchstart', e => {
+    const [px, py] = touchPos(e.touches[0]);
+    let best = -1, bd = 28;
+    pts.forEach(([x, y], i) => {
+      const [sx, sy] = toS(x, y);
+      const d = Math.hypot(sx - px, sy - py);
+      if (d < bd) { bd = d; best = i; }
+    });
+    dragging = best;
+    if (best >= 0) e.preventDefault();
+  }, { passive: false });
+  cv.addEventListener('touchmove', e => {
+    if (dragging < 0) return;
+    e.preventDefault();
+    const [px, py] = touchPos(e.touches[0]);
+    const [x, y] = toD(px, py);
+    pts[dragging] = [Math.max(-R, Math.min(R, x)), Math.max(-R, Math.min(R, y))];
+    render();
+  }, { passive: false });
+  cv.addEventListener('touchend', stop);
+  cv.addEventListener('touchcancel', stop);
+
+  ['rho', 'sx', 'sy', 'mx', 'my'].forEach(id => $(id).addEventListener('input', regenerate));
+
+  $('b_rects').addEventListener('click', e => {
+    showRects = !showRects;
+    e.target.textContent = 'Rectangles: ' + (showRects ? 'on' : 'off');
+    render();
+  });
+  $('b_units').addEventListener('click', e => {
+    unitK = unitK === 1 ? 100 : 1;
+    e.target.textContent = 'Units of X: ' + (unitK === 1 ? 'meters' : 'centimeters (×100)');
+    render();
+  });
+  $('b_resample').addEventListener('click', () => { resample(); regenerate(); });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'r' || e.key === 'R') { resample(); regenerate(); }
+    if (e.key === 'u' || e.key === 'U') $('b_units').click();
+    if (e.code === 'Space' && document.activeElement === document.body) { e.preventDefault(); $('b_rects').click(); }
+  });
+
+  // LaTeX (KaTeX is loaded with defer; fall back to plain text if the CDN is unreachable)
+  function renderMath() {
+    const items = [
+      ['f1', String.raw`\mathrm{Cov}(X,Y)\;=\;\mathbb{E}\big[(X-\mu_X)(Y-\mu_Y)\big]\;\approx\;\frac{1}{n}\sum_{i=1}^{n}\underbrace{(x_i-\bar x)(y_i-\bar y)}_{\text{signed area of rectangle } i}`],
+      ['f2', String.raw`\hat{\sigma}_{XY}\;=\;\frac{1}{n}\Big(\sum_{\text{green}}\text{area}_i\;-\;\sum_{\text{red}}\text{area}_i\Big)`],
+      ['f3', String.raw`\rho=\frac{\mathrm{Cov}(X,Y)}{\sigma_X\,\sigma_Y},\qquad r=\frac{\hat{\sigma}_{XY}}{s_X\,s_Y},\qquad \mathrm{Cov}(X,X)=\mathrm{Var}(X)\ \ (\text{rectangles}\to\text{squares})`]
+    ];
+    items.forEach(([id, tex]) => {
+      if (window.katex) katex.render(tex, $(id), { displayMode: true, throwOnError: false });
+      else $(id).textContent = tex;
+    });
+  }
+  window.addEventListener('load', renderMath);
+
+  window.addEventListener('resize', resize);
+  resample();
+  regenerate();
+  resize();
+})();
+</script>
+</body>
+</html>

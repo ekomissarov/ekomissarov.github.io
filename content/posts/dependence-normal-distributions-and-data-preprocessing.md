@@ -38,6 +38,8 @@ If $X$ is symmetric about zero and $g$ is even, then $\operatorname{Cov}(X,g(X))
 
 ## Covariance and Correlation
 
+[Explore covariance as the average signed area](/visualizations/covariance/). Drag the points to see how their positions relative to the sample mean affect covariance.
+
 ### Population Quantities
 
 Finite second moments are assumed below; correlation additionally requires positive variances.
