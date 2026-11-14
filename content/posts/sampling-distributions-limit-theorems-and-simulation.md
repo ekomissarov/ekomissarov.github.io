@@ -131,6 +131,8 @@ $$
 
 ## Central Limit Theorem
 
+[Explore sampling distributions with simulated salaries](/visualizations/salary-sampling/). Draw repeated samples from a simulated population and see how the distribution of the sample mean changes with sample size. You can also compare the mean with other statistics, such as the median or a percentile.
+
 **Lindeberg–Lévy:** for i.i.d. observations with $E(X_i)=\mu$ and $0\lt \operatorname{Var}(X_i)=\sigma^2\lt \infty$:
 
 $$
