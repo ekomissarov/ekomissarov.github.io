@@ -103,6 +103,8 @@ Let $z=z_{1-\alpha/2}$ be the corresponding quantile of $N(0,1)$. Use $z\approx1
 
 ## Delta Method
 
+[Explore the delta method with squared sample means](/visualizations/delta-method/). Hold the sample size fixed and move the true mean toward zero to compare the normal approximation with the exact distribution.
+
 Suppose $\sqrt n(\hat\theta_n-\theta)\xrightarrow{d}N(0,V)$ and $g$ is differentiable at $\theta$. The first-order approximation replaces $g(\hat\theta_n)-g(\theta)$ with $g'(\theta)(\hat\theta_n-\theta)$, yielding
 
 $$
