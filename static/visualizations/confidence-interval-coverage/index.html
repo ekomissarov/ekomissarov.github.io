@@ -54,8 +54,8 @@ svg{width:100%;height:auto;display:block;touch-action:pan-y}
 .info{min-height:44px;margin-top:8px;font-size:13.5px;color:var(--muted);font-variant-numeric:tabular-nums}
 .info b{color:var(--fg)}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.two .card{padding:12px 14px}
-.two .info{margin-top:4px;min-height:0}
+.hcard{padding:12px 14px}
+.hcard .info{margin-top:4px;min-height:0}
 @media(max-width:820px){.two{grid-template-columns:1fr}}
 .note{color:var(--muted);font-size:12.5px;line-height:1.4;margin:0}
 .note p{margin:0 0 5px}
@@ -92,21 +92,10 @@ svg{width:100%;height:auto;display:block;touch-action:pan-y}
     </div>
   </div>
 
-  <div class="two">
-    <div class="card">
+  <div class="card hcard">
       <h2>How many intervals contain μ, run after run?</h2>
       <svg id="hist" role="img" aria-label="Histogram of the number of intervals that contained the true mean per run"></svg>
       <div class="info" id="histtxt"></div>
-    </div>
-    <div class="card">
-      <h2>Two different knobs</h2>
-      <div class="note">
-        <p><b>Sample size n</b> changes how <i>wide</i> intervals are (about 1/√n); the share containing μ stays near the confidence level.</p>
-        <p><b>Confidence level</b> changes how <i>often</i> intervals contain μ, paid for with width: 95% → 99% widens every interval.</p>
-        <p>Moving a control reuses the same data (n takes the first n observations), so the same intervals shrink or stretch. “New samples” draws fresh data.</p>
-        <p id="h0note" class="hidden"><b>Test duality.</b> The two-sided t-test of H₀: μ = μ₀ at α = 1 − level rejects exactly when μ₀ is outside the interval. At μ₀ = μ the rejection rate is α; moving μ₀ away shows power.</p>
-      </div>
-    </div>
   </div>
 
   <div class="card">
@@ -240,11 +229,10 @@ function renderChart(){
   }
   $('counttxt').innerHTML=txt;
   $('legh0').classList.toggle('hidden',!showH0);
-  $('h0note').classList.toggle('hidden',!showH0);
 }
 
 /* ---------- history ---------- */
-const hsv=$('hist'), HW=460, HH=122, hl=34, hr=10, ht=14, hb=32;
+const hsv=$('hist'), HW=1000, HH=120, hl=34, hr=10, ht=14, hb=32;
 hsv.setAttribute('viewBox','0 0 '+HW+' '+HH);
 function renderHist(){
   const A=70, B=100, bw=(HW-hl-hr)/(B-A+1); let mx=1;
