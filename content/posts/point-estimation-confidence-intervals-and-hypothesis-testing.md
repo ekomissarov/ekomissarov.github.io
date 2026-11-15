@@ -70,6 +70,8 @@ The normal model uses **raw moments**. The method-of-moments variance estimator 
 
 ## Confidence Intervals
 
+[Explore confidence interval coverage](/visualizations/confidence-interval-coverage/). Draw 100 samples, see how many intervals contain the true mean, and compare the results across repeated runs.
+
 The confidence level $1-\alpha$ describes coverage of a fixed parameter across repeated samples. For an asymptotic interval, coverage approaches the nominal level under the stated assumptions. For the symmetric intervals below, the half-width is the critical quantile times the standard error or its estimate.
 
 Let $z=z_{1-\alpha/2}$ be the corresponding quantile of $N(0,1)$. Use $z\approx1.96$ for $95\%$ and $z\approx3.2905$ for $99.9\%$. The interval from $-3$ to $3$ contains about $99.73\%$ of the standard normal distribution.
