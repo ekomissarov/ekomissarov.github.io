@@ -23,6 +23,8 @@ An **estimator** $\hat\theta_n=T(X_1,\dots,X_n)$ is a rule that uses a random sa
 
 All four combinations are possible for an i.i.d. sample from $N(\mu,1)$.
 
+[Explore bias and consistency](/visualizations/bias-and-consistency/). Increase the sample size and compare which distributions narrow and where they concentrate.
+
 | | Unbiased estimator of $\mu$ | Biased estimator of $\mu$ |
 | :--- | :--- | :--- |
 | Consistent | $\bar X_n$ | $\bar X_n+1/n$ |
