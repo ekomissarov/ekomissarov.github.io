@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The rarer the error, the costlier it is</title>
+<style>
+:root{
+  --bg:#f7f7f4; --fg:#1f2430; --muted:#6b7280; --card:#ffffff; --line:#e1e4ea;
+  --accent:#2563eb; --rare:#ea580c; --zero:#93b4f5;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#14161b; --fg:#e6e8ee; --muted:#9aa3b2; --card:#1d2027; --line:#2c313b;
+        --accent:#6aa0ff; --rare:#fb923c; --zero:#2f4f8f;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 18px;max-width:84ch}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.card h2{font-size:15px;margin:0 0 8px;font-weight:600}
+.row{display:flex;flex-wrap:wrap;gap:14px 24px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:5px;min-width:300px;flex:1 1 300px}
+.field label{font-size:12.5px;color:var(--muted)}
+.val{font-variant-numeric:tabular-nums;color:var(--fg);font-weight:600}
+input[type=range]{width:100%;accent-color:var(--accent)}
+button{font:inherit;color:var(--fg);border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 16px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;min-width:120px}
+.two{display:grid;grid-template-columns:1.25fr 1fr;gap:16px}
+@media(max-width:860px){.two{grid-template-columns:1fr}}
+.two .card{margin-bottom:0}
+svg{width:100%;height:auto;display:block}
+.axis text,.lbl{fill:var(--muted);font-size:12px;font-family:inherit;font-variant-numeric:tabular-nums}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.tile{border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.tile .k{font-size:12.5px;color:var(--muted)}
+.tile .v{font-size:32px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.tile.mse .v{color:var(--rare)}
+.calc{font-size:13.5px;color:var(--muted);font-variant-numeric:tabular-nums;margin:0 0 4px}
+.calc b{color:var(--fg)}
+.calc .r{color:var(--rare);font-weight:600}
+.contrib{margin:6px 0 14px}
+.contrib .name{font-size:12.5px;color:var(--muted);margin-bottom:3px}
+.track{height:14px;background:var(--line);border-radius:7px;overflow:hidden;position:relative}
+.fill{position:absolute;left:0;top:0;bottom:0;background:var(--rare);min-width:3px;border-radius:7px}
+.takeaway{border-top:1px solid var(--line);padding-top:10px;color:var(--muted);font-size:13.5px;font-variant-numeric:tabular-nums}
+.takeaway b{color:var(--fg)}
+.presets{display:flex;gap:6px}
+.presets button{padding:8px 11px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>The rarer the error, the costlier it is</h1>
+  <p class="sub">Consider the estimator Zₙ of the target value 0 that equals n with probability 1/n and 0 otherwise. As n grows the error becomes rarer, so Zₙ → 0 in probability. But when it does occur it equals n, and the mean squared error grows with n.</p>
+
+  <div class="card">
+    <div class="row">
+      <div class="field">
+        <label for="n">n = <span class="val" id="nv">100</span></label>
+        <input type="range" id="n" min="0" max="1000" value="667" aria-label="n">
+      </div>
+      <button id="play" class="primary" type="button">Play</button>
+      <div class="presets" aria-label="Presets">
+        <button type="button" data-n="1">n = 1</button>
+        <button type="button" data-n="10">10</button>
+        <button type="button" data-n="100">100</button>
+        <button type="button" data-n="1000">1000</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="two">
+    <div class="card">
+      <h2>Distribution of the error Zₙ − 0</h2>
+      <svg id="left" viewBox="0 0 540 350" role="img" aria-label="Probability strip with the rare outcome and the error scale"></svg>
+    </div>
+    <div class="card">
+      <h2>Summary over both outcomes</h2>
+      <div class="tiles">
+        <div class="tile"><div class="k">mean E[Zₙ]</div><div class="v" id="tE">1</div></div>
+        <div class="tile mse"><div class="k">MSE(Zₙ; 0) = E[Zₙ²]</div><div class="v" id="tM">100</div></div>
+      </div>
+      <p class="calc" id="calcE"></p>
+      <div class="contrib">
+        <div class="name"><span id="nE"></span> · scale 0 … 1000 (minimum visible width)</div>
+        <div class="track"><div class="fill" id="bE"></div></div>
+      </div>
+      <p class="calc" id="calcM"></p>
+      <div class="contrib">
+        <div class="name"><span id="nM"></span> · same scale (minimum visible width)</div>
+        <div class="track"><div class="fill" id="bM"></div></div>
+      </div>
+      <div class="takeaway" id="take"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+const NMAX=1000;
+const $=id=>document.getElementById(id);
+let n=100, playing=false, raf=0;
+const nFrom=v=>Math.max(1,Math.round(Math.pow(NMAX,v/1000)));
+const vFrom=nn=>1000*Math.log(nn)/Math.log(NMAX);
+const num=v=>v.toLocaleString('en-US',{maximumFractionDigits:2});
+function pct(p){ // p in [0,1]
+  const x=p*100; let s;
+  if(x>=99.995) return '100%';
+  s=x>=10?x.toFixed(x%1<1e-9?0:1):x.toPrecision(2);
+  return s.replace(/(\.\d*?)0+$/,'$1').replace(/\.$/,'')+'%';
+}
+
+/* ---------- left SVG ---------- */
+const W=540, x0=66, x1=516, y0=270, barY=270, barH=34, yTop=30;
+const Y=e=>y0-(e/NMAX)*(y0-yTop);
+function drawLeft(){
+  const p=1/n, wRare=Math.max(2.2,(x1-x0)*p), xr=x1-wRare, mid0=(x0+xr)/2, midR=x1-wRare/2;
+  let s='<g class="axis">';
+  s+='<line x1="'+x0+'" x2="'+x0+'" y1="'+yTop+'" y2="'+y0+'" stroke="var(--muted)"/>';
+  for(const t of [0,250,500,750,1000]){
+    s+='<line x1="'+(x0-4)+'" x2="'+x0+'" y1="'+Y(t)+'" y2="'+Y(t)+'" stroke="var(--muted)"/>'+
+       '<text x="'+(x0-8)+'" y="'+(Y(t)+4)+'" text-anchor="end">'+t+'</text>';
+    if(t>0) s+='<line x1="'+x0+'" x2="'+x1+'" y1="'+Y(t)+'" y2="'+Y(t)+'" stroke="var(--line)" stroke-dasharray="2 4"/>';
+  }
+  s+='<text x="'+(x0-8)+'" y="'+(yTop-12)+'" text-anchor="end">error size</text>';
+  s+='</g>';
+  // guide from marker to axis
+  const ym=Y(n);
+  s+='<line x1="'+x0+'" x2="'+midR+'" y1="'+ym+'" y2="'+ym+'" stroke="var(--rare)" stroke-dasharray="5 4" stroke-width="1.5"/>';
+  s+='<line x1="'+midR+'" x2="'+midR+'" y1="'+barY+'" y2="'+ym+'" stroke="var(--rare)" stroke-width="2"/>';
+  // probability strip
+  s+='<rect x="'+x0+'" y="'+barY+'" width="'+(xr-x0)+'" height="'+barH+'" fill="var(--zero)"/>';
+  s+='<rect x="'+xr+'" y="'+barY+'" width="'+wRare+'" height="'+barH+'" fill="var(--rare)"/>';
+  if (n > 1) s+='<text x="'+mid0+'" y="'+(barY+barH/2+5)+'" text-anchor="middle" style="fill:var(--fg);font-size:13px;font-weight:600">Zₙ = 0</text>';
+  // markers
+  if (n > 1) s+='<circle cx="'+mid0+'" cy="'+y0+'" r="5" fill="var(--accent)"/>';
+  s+='<circle cx="'+midR+'" cy="'+ym+'" r="6.5" fill="var(--rare)"/>';
+  s+='<text x="'+(midR-12)+'" y="'+(ym-8)+'" text-anchor="end" style="fill:var(--rare);font-size:13px;font-weight:700">error = n = '+n+'</text>';
+  if (n > 1) s+='<text x="'+mid0+'" y="'+(y0-12)+'" text-anchor="middle" style="fill:var(--accent);font-size:12px;font-weight:600">error = 0</text>';
+  // probability labels under strip
+  s+='<text x="'+x0+'" y="'+(barY+barH+22)+'" style="fill:var(--accent);font-size:13px;font-weight:600">P(Zₙ = 0) = 1 − 1/n = '+pct(1-p)+'</text>';
+  s+='<text x="'+x1+'" y="'+(barY+barH+42)+'" text-anchor="end" style="fill:var(--rare);font-size:13px;font-weight:600">P(Zₙ = n) = 1/n = '+pct(p)+'</text>';
+  s+='<text x="'+x0+'" y="'+(barY+barH+42)+'" class="lbl">probability strip (minimum visible width)</text>';
+  $('left').innerHTML=s;
+}
+
+/* ---------- right ---------- */
+function drawRight(){
+  const probability = '(1/' + n + ')';
+  $('tE').textContent='1';
+  $('tM').textContent=num(n);
+  $('calcE').innerHTML='E[Zₙ] = '+n+' × '+probability+' = <b>1</b>';
+  $('nE').textContent='nonzero outcome: (1/'+n+') × '+n+' = 1';
+  $('calcM').innerHTML='MSE = '+n+'² × '+probability+' = <b>'+num(n)+'</b>';
+  $('nM').textContent='nonzero outcome: (1/'+n+') × '+n+'² = '+num(n);
+  $('bE').style.width=(1/NMAX*100)+'%';
+  $('bM').style.width=(n/NMAX*100)+'%';
+  $('take').innerHTML='Zₙ → 0 in probability: P(Zₙ ≠ 0) = 1/n = <b>'+pct(1/n)+'</b>. The mean stays at <b>1</b>, but the squared error of the rare outcome is n², so MSE = <b>'+num(n)+'</b> grows without bound.';
+}
+
+function setN(nn,fromSlider){
+  n=Math.min(NMAX,Math.max(1,nn));
+  $('nv').textContent=n;
+  if(!fromSlider) $('n').value=vFrom(n);
+  drawLeft(); drawRight();
+}
+$('n').addEventListener('input',e=>{stop();setN(nFrom(+e.target.value),true);});
+for(const b of document.querySelectorAll('.presets button')) b.addEventListener('click',()=>{stop();setN(+b.dataset.n);});
+
+/* ---------- play ---------- */
+function stop(){playing=false;cancelAnimationFrame(raf);$('play').textContent='Play';}
+$('play').addEventListener('click',()=>{
+  if(playing){stop();return;}
+  playing=true; $('play').textContent='Pause';
+  let v0=vFrom(n); if(v0>=999) v0=0;
+  const dur=9000*(1000-v0)/1000, t0=performance.now();
+  (function step(t){
+    if(!playing) return;
+    const k=Math.min(1,(t-t0)/dur), v=v0+(1000-v0)*k, nn=nFrom(v);
+    $('n').value=v; if(nn!==n) setN(nn,true);
+    if(k<1) raf=requestAnimationFrame(step); else stop();
+  })(t0);
+});
+setN(100);
+})();
+</script>
+</body>
+</html>

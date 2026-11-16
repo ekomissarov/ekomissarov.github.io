@@ -34,6 +34,8 @@ The variability of $X_1$ persists as $n$ grows. The probability limit of $\bar X
 
 Convergence in probability allows rare but large errors. If $Z_n=n$ with probability $1/n$ and $Z_n=0$ otherwise, then $Z_n\xrightarrow{P}0$ even though $E[Z_n]=1$ and $\operatorname{Var}(Z_n)=n-1$.
 
+[Explore how rare errors can drive up MSE](/visualizations/rare-costly-error/). Increase $n$ to see the probability of a nonzero error fall while the mean squared error grows.
+
 ## Sample Mean and Sample Variance
 
 Assume i.i.d. observations with $E[X_i]=\mu$ and finite variance $\sigma^2$. The corrected sample variance $s^2$ is defined for $n\ge2$.
