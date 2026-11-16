@@ -96,6 +96,8 @@ At $\lambda=0$, the estimator is $\bar Y_3$. Increasing $\lambda$ reduces varian
 
 ## Fisher Information and the Cramér–Rao Bound
 
+[Explore the Cramér–Rao bound for Bernoulli trials](/visualizations/cramer-rao-bernoulli/). Increase the number of trials to see how the variance of the sample proportion follows the bound and how it compares with using just the first trial.
+
 For one observation $X$ with density or probability mass function $f_\theta$, the score and Fisher information are
 
 $$

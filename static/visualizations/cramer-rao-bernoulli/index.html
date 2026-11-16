@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cramér–Rao bound for a Bernoulli probability</title>
+<style>
+:root{
+  --bg:#f7f7f4; --fg:#1f2430; --muted:#6b7280; --card:#ffffff; --line:#e1e4ea;
+  --accent:#2563eb; --one:#ea580c; --tipbg:#111827;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#14161b; --fg:#e6e8ee; --muted:#9aa3b2; --card:#1d2027; --line:#2c313b;
+        --accent:#6aa0ff; --one:#fb923c; --tipbg:#0b0d11;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1000px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 18px;max-width:84ch}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.row{display:flex;flex-wrap:wrap;gap:14px 24px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:5px;min-width:280px;flex:1 1 280px}
+.field label{font-size:12.5px;color:var(--muted)}
+.val{font-variant-numeric:tabular-nums;color:var(--fg);font-weight:600}
+input[type=range]{width:100%;accent-color:var(--accent)}
+button{font:inherit;color:var(--fg);border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 12px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+.presets{display:flex;gap:6px}
+.plot{position:relative}
+canvas{width:100%;height:420px;display:block;touch-action:pan-y;cursor:crosshair}
+#tip{position:absolute;pointer-events:none;background:var(--tipbg);color:#fff;font-size:12.5px;line-height:1.45;padding:7px 10px;border-radius:8px;white-space:nowrap;box-shadow:0 2px 10px rgba(0,0,0,.3);z-index:5;font-variant-numeric:tabular-nums}
+#tip[hidden]{display:none}
+#tip .o{color:#fdba74} #tip .b{color:#93c5fd}
+.legend{display:flex;flex-wrap:wrap;gap:6px 22px;color:var(--muted);font-size:13px;margin-top:10px}
+.legend i{display:inline-block;vertical-align:middle;margin-right:6px}
+.readout{display:flex;flex-wrap:wrap;gap:6px 28px;margin-top:14px;font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+.readout b{color:var(--fg);font-weight:700}
+.readout .o{color:var(--one)} .readout .b{color:var(--accent)}
+.note{margin-top:10px;color:var(--muted);font-size:13.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Why the sample proportion hits the Cramér–Rao bound</h1>
+  <p class="sub">X₁, …, Xₙ are independent Bernoulli(p) trials with 0 &lt; p &lt; 1. Both X₁ (a single trial) and p̂ = X̄ₙ are unbiased for p. The Fisher information of one trial is 1/(p(1−p)), so no unbiased estimator from n trials can have variance below p(1−p)/n. The vertical scale is fixed, so you can watch the blue curve sink as n grows.</p>
+
+  <div class="card">
+    <div class="row">
+      <div class="field">
+        <label for="n">Number of trials n: <span class="val" id="nv">10</span></label>
+        <input type="range" id="n" min="0" max="1000" value="435">
+      </div>
+      <div class="presets" aria-label="Presets">
+        <button type="button" data-n="1">n = 1</button>
+        <button type="button" data-n="2">2</button>
+        <button type="button" data-n="10">10</button>
+        <button type="button" data-n="50">50</button>
+        <button type="button" data-n="200">200</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="plot" id="plot">
+      <canvas id="cv" role="img" aria-label="Variance of the estimators as a function of p"></canvas>
+      <div id="tip" hidden></div>
+    </div>
+    <div class="legend">
+      <span><i style="width:22px;border-top:3.5px solid var(--one)"></i>Var(X₁) = p(1−p), estimate from one trial</span>
+      <span><i style="width:22px;border-top:3px dashed var(--accent)"></i>Cramér–Rao bound p(1−p)/n</span>
+      <span><i style="width:10px;height:10px;border-radius:50%;background:var(--accent)"></i>Var(p̂) for the sample proportion, computed from the exact Binomial distribution</span>
+    </div>
+    <div class="readout" id="readout"></div>
+    <div class="note" id="note"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+const NMAX=200, YMAX=0.27;
+const $=id=>document.getElementById(id);
+let n=10, hp=0.5, hover=false;
+const lf=new Float64Array(NMAX+2); for(let i=1;i<lf.length;i++) lf[i]=lf[i-1]+Math.log(i);
+function varPhat(p){ // exact variance of X̄ computed from the Binomial(n,p) pmf
+  let mean=0, m2=0;
+  for(let k=0;k<=n;k++){
+    const lp=lf[n]-lf[k]-lf[n-k]+k*Math.log(p)+(n-k)*Math.log(1-p), w=Math.exp(lp), x=k/n;
+    mean+=w*x; m2+=w*x*x;
+  }
+  return {mean,v:m2-mean*mean};
+}
+function fm(v){
+  const a=Math.abs(v); if(a<1e-12) return '0';
+  const s=a>=0.1?v.toFixed(3):a>=0.001?v.toFixed(4):v.toPrecision(2);
+  return s.replace(/(\.\d*?)0+$/,'$1').replace(/\.$/,'');
+}
+function css(k){return getComputedStyle(document.documentElement).getPropertyValue(k).trim();}
+
+const cv=$('cv'), L=62,Rr=18,T=22,B=44;
+let geo={};
+function draw(){
+  const dpr=window.devicePixelRatio||1, W=cv.clientWidth, H=cv.clientHeight; if(!W) return;
+  cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
+  const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  const muted=css('--muted'), line=css('--line'), fg=css('--fg'), one=css('--one'), acc=css('--accent');
+  const pw=W-L-Rr, ph=H-T-B, base=T+ph;
+  const sx=p=>L+p*pw, sy=v=>base-v/YMAX*ph;
+  geo={W,H,pw,ph,base};
+  ctx.font='12px system-ui,sans-serif'; ctx.textAlign='right'; ctx.fillStyle=muted; ctx.strokeStyle=line; ctx.lineWidth=1;
+  for(let t=0;t<=0.25+1e-9;t+=0.05){const y=sy(t); ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(L+pw,y); ctx.setLineDash([2,4]); ctx.stroke(); ctx.setLineDash([]); ctx.fillText(t.toFixed(2),L-8,y+4);}
+  ctx.strokeStyle=muted; ctx.beginPath(); ctx.moveTo(L,base); ctx.lineTo(L+pw,base); ctx.stroke();
+  ctx.textAlign='center';
+  for(let t=0;t<=1+1e-9;t+=0.1){const x=sx(t); ctx.beginPath(); ctx.moveTo(x,base); ctx.lineTo(x,base+4); ctx.stroke(); ctx.fillText(t.toFixed(1),x,base+18);}
+  ctx.fillText('true success probability p',L+pw/2,H-6);
+  ctx.save(); ctx.translate(14,T+ph/2); ctx.rotate(-Math.PI/2); ctx.fillText('variance of the estimator',0,0); ctx.restore();
+  // gap shading
+  ctx.fillStyle=one; ctx.globalAlpha=.10; ctx.beginPath();
+  for(let k=0;k<=200;k++){const p=k/200; k?ctx.lineTo(sx(p),sy(p*(1-p))):ctx.moveTo(sx(p),sy(p*(1-p)));}
+  for(let k=200;k>=0;k--){const p=k/200; ctx.lineTo(sx(p),sy(p*(1-p)/n));}
+  ctx.closePath(); ctx.fill(); ctx.globalAlpha=1;
+  // largest gap marker at p = .5
+  ctx.strokeStyle=muted; ctx.lineWidth=1; ctx.setLineDash([1,3]); ctx.beginPath(); ctx.moveTo(sx(.5),sy(.25)); ctx.lineTo(sx(.5),sy(.25/n)); ctx.stroke(); ctx.setLineDash([]);
+  // single-trial curve
+  ctx.strokeStyle=one; ctx.lineWidth=3.2; ctx.beginPath();
+  for(let k=0;k<=200;k++){const p=k/200; k?ctx.lineTo(sx(p),sy(p*(1-p))):ctx.moveTo(sx(p),sy(p*(1-p)));}
+  ctx.stroke();
+  // CRLB dashed
+  ctx.strokeStyle=acc; ctx.lineWidth=2.2; ctx.setLineDash([8,5]); ctx.beginPath();
+  for(let k=0;k<=200;k++){const p=k/200; k?ctx.lineTo(sx(p),sy(p*(1-p)/n)):ctx.moveTo(sx(p),sy(p*(1-p)/n));}
+  ctx.stroke(); ctx.setLineDash([]);
+  // markers: exact Var(p-hat)
+  ctx.fillStyle=acc; ctx.strokeStyle=css('--card'); ctx.lineWidth=1.5;
+  for(let k=1;k<=19;k++){const p=k/20, v=varPhat(p).v; ctx.beginPath(); ctx.arc(sx(p),sy(v),4.6,0,6.3); ctx.fill(); ctx.stroke();}
+  // hover guide
+  if(hover){
+    const p=hp, x=sx(p);
+    ctx.strokeStyle=fg; ctx.lineWidth=1; ctx.setLineDash([3,3]); ctx.beginPath(); ctx.moveTo(x,T); ctx.lineTo(x,base); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=one; ctx.beginPath(); ctx.arc(x,sy(p*(1-p)),5.5,0,6.3); ctx.fill();
+    ctx.fillStyle=acc; ctx.beginPath(); ctx.arc(x,sy(p*(1-p)/n),5.5,0,6.3); ctx.fill();
+  }
+}
+function readout(){
+  const p=hp, v1=p*(1-p), vn=varPhat(p), crlb=v1/n;
+  $('readout').innerHTML=
+    '<span>p = <b>'+p.toFixed(3)+'</b></span>'+
+    '<span class="o">Var(X₁) = <b>'+fm(v1)+'</b></span>'+
+    '<span class="b">Cramér–Rao bound = Var(p̂) = <b>'+fm(vn.v)+'</b></span>'+
+    '<span>ratio = <b>'+fm(v1/vn.v)+'</b> = n</span>'+
+    '<span>gap = <b>'+fm(v1-vn.v)+'</b></span>'+
+    '<span>E[X₁] = E[p̂] = <b>'+fm(vn.mean)+'</b></span>';
+  $('note').textContent=n===1?'With n = 1 the sample proportion is X₁ itself, so all three marks coincide.':
+    'The gap p(1−p)(1 − 1/n) is largest at p = 0.5, where it equals '+fm(0.25*(1-1/n))+'. Moving the pointer along p shows the exact numbers.';
+}
+function update(){ $('nv').textContent=n; draw(); readout(); }
+
+/* interaction */
+const tip=$('tip'), plot=$('plot');
+function pFromEvent(e){
+  const r=cv.getBoundingClientRect(), x=e.clientX-r.left, pw=r.width-L-Rr;
+  return Math.min(0.999,Math.max(0.001,(x-L)/pw));
+}
+cv.addEventListener('pointermove',e=>{
+  hover=true; hp=pFromEvent(e);
+  const v1=hp*(1-hp), vn=varPhat(hp).v;
+  tip.innerHTML='p = '+hp.toFixed(3)+'<br><span class="o">Var(X₁) = '+fm(v1)+'</span><br><span class="b">Var(p̂) = '+fm(vn)+'</span><br>difference = '+fm(v1-vn);
+  tip.hidden=false;
+  const r=cv.getBoundingClientRect(), pr=plot.getBoundingClientRect();
+  let x=e.clientX-pr.left+14, y=e.clientY-pr.top-10;
+  if(x+tip.offsetWidth>pr.width-4) x=e.clientX-pr.left-tip.offsetWidth-14;
+  if(y+tip.offsetHeight>pr.height-4) y=pr.height-tip.offsetHeight-4; if(y<4) y=4;
+  tip.style.left=x+'px'; tip.style.top=y+'px';
+  draw(); readout();
+});
+cv.addEventListener('pointerleave',()=>{hover=false; tip.hidden=true; hp=0.5; draw(); readout();});
+
+const nFrom=v=>Math.max(1,Math.round(Math.pow(NMAX,v/1000)));
+const vFrom=nn=>1000*Math.log(nn)/Math.log(NMAX);
+$('n').addEventListener('input',e=>{const nn=nFrom(+e.target.value); if(nn!==n){n=nn;update();}});
+for(const b of document.querySelectorAll('.presets button')) b.addEventListener('click',()=>{n=+b.dataset.n;$('n').value=vFrom(n);update();});
+window.addEventListener('resize',update);
+if(window.ResizeObserver) new ResizeObserver(update).observe(cv);
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',update);
+update();
+})();
+</script>
+</body>
+</html>
