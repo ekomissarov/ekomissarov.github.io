@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Variance estimators: divisor n versus n−1</title>
+<style>
+:root{
+  --bg:#f7f7f4; --fg:#1f2430; --muted:#6b7280; --card:#ffffff; --line:#e1e4ea;
+  --accent:#2563eb; --teal:#0f766e; --exp:#d97706; --ok:#15803d;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#14161b; --fg:#e6e8ee; --muted:#9aa3b2; --card:#1d2027; --line:#2c313b;
+        --accent:#6aa0ff; --teal:#2dd4bf; --exp:#fbbf24; --ok:#4ade80;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 18px;max-width:84ch}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.row{display:flex;flex-wrap:wrap;gap:14px 24px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:5px;min-width:300px;flex:1 1 300px}
+.field label{font-size:12.5px;color:var(--muted)}
+.val{font-variant-numeric:tabular-nums;color:var(--fg);font-weight:600}
+input[type=range]{width:100%;accent-color:var(--accent)}
+button{font:inherit;color:var(--fg);border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 12px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+.presets{display:flex;gap:6px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:860px){.two{grid-template-columns:1fr}}
+.two .card{margin-bottom:0;padding:12px 14px}
+.two h2{font-size:15px;margin:0 0 2px;font-weight:600}
+.cap{color:var(--muted);font-size:12.5px;margin:0 0 6px;font-variant-numeric:tabular-nums;min-height:18px}
+canvas{width:100%;height:300px;display:block}
+table{border-collapse:collapse;width:100%;margin-top:8px;font-size:13.5px;font-variant-numeric:tabular-nums}
+td,th{padding:3px 0;text-align:left;font-weight:400}
+td:last-child,th:last-child{text-align:right}
+th{color:var(--muted)}
+tr.mse td{border-top:1px solid var(--line);font-weight:700}
+td.win{color:var(--ok)}
+.muted{color:var(--muted)}
+.verdict{margin-top:14px;color:var(--muted);font-size:14px}
+.verdict b{color:var(--fg)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;color:var(--muted);font-size:13px;margin-top:10px}
+.legend i{display:inline-block;width:18px;height:0;border-top:3px solid;vertical-align:middle;margin-right:6px}
+.legend i.bar{height:10px;border:0;background:var(--accent);opacity:.55;border-radius:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Variance estimators: divisor n versus n − 1</h1>
+  <p class="sub">Every simulation draws one sample of size n from N(0, 1) and computes both estimators from that same sample. The true variance is σ² = 1. Both histograms use the same bins and the same axes, so the shift and the spread can be compared directly.</p>
+
+  <div class="card">
+    <div class="row">
+      <div class="field">
+        <label for="n">Sample size n: <span class="val" id="nv">2</span></label>
+        <input type="range" id="n" min="0" max="1000" value="0">
+      </div>
+      <div class="presets" aria-label="Presets">
+        <button type="button" data-n="2">n = 2</button>
+        <button type="button" data-n="5">5</button>
+        <button type="button" data-n="10">10</button>
+        <button type="button" data-n="30">30</button>
+        <button type="button" data-n="100">100</button>
+      </div>
+      <button id="redraw" type="button">New draw</button>
+    </div>
+  </div>
+
+  <div class="two">
+    <div class="card">
+      <h2>Divisor n</h2>
+      <p class="cap" id="capA">σ̂² = Σ(Xᵢ − X̄)² / n</p>
+      <canvas id="cA"></canvas>
+      <table id="tA"></table>
+    </div>
+    <div class="card">
+      <h2>Divisor n − 1</h2>
+      <p class="cap" id="capB">S² = Σ(Xᵢ − X̄)² / (n − 1)</p>
+      <canvas id="cB"></canvas>
+      <table id="tB"></table>
+    </div>
+  </div>
+
+  <div class="verdict" id="verdict"></div>
+  <p class="cap" id="densityNote" hidden>At n = 2, both exact densities rise without bound as the variance estimate approaches zero. The top of each curve is clipped to keep the histograms readable.</p>
+  <div class="legend">
+    <span><i class="bar"></i>20,000 simulated samples</span>
+    <span><i style="border-color:var(--fg)"></i>exact density of the estimator</span>
+    <span><i style="border-color:var(--exp);border-top-style:dashed"></i>mean of the estimator</span>
+  </div>
+</div>
+
+<script>
+(function(){
+const R=20000, NMAX=100, XMAX=4, NB=100, BW=XMAX/NB;
+const $=id=>document.getElementById(id);
+const G=new Float32Array(R*NMAX), SS=new Float64Array(R);
+let n=2, spare=null;
+function gauss(){
+  if(spare!==null){const s=spare;spare=null;return s;}
+  let u=0; while(u===0) u=Math.random(); const v=Math.random(), r=Math.sqrt(-2*Math.log(u));
+  spare=r*Math.sin(2*Math.PI*v); return r*Math.cos(2*Math.PI*v);
+}
+function newDraw(){for(let i=0;i<G.length;i++) G[i]=gauss();}
+function computeSS(){
+  for(let r=0;r<R;r++){
+    const b=r*NMAX; let s=0; for(let j=0;j<n;j++) s+=G[b+j];
+    const m=s/n; let q=0; for(let j=0;j<n;j++){const d=G[b+j]-m; q+=d*d;}
+    SS[r]=q;
+  }
+}
+function lgamma(x){
+  const c=[76.18009172947146,-86.50532032941677,24.01409824083091,-1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5];
+  let y=x, t=x+5.5; t-=(x+0.5)*Math.log(t);
+  let s=1.000000000190015; for(let j=0;j<6;j++) s+=c[j]/++y;
+  return -t+Math.log(2.5066282746310005*s/x);
+}
+// exact density of V = Q/d with Q ~ chi-square(n-1)
+function dens(v,d){
+  if(v<=0) return NaN; const k=n-1, x=d*v;
+  return d*Math.exp((k/2-1)*Math.log(x)-x/2-(k/2)*Math.LN2-lgamma(k/2));
+}
+function fm(v,dd){const a=Math.abs(v); const s=(a<1e-9?0:v).toFixed(dd===undefined?(a<0.1?4:3):dd); return s.replace(/(\.\d*?)0+$/,'$1').replace(/\.$/,'');}
+function niceTicks(a,b,count){
+  const step0=(b-a)/count, mag=Math.pow(10,Math.floor(Math.log10(step0))), err=step0/mag;
+  const step=(err>=7.5?10:err>=3.5?5:err>=1.5?2:1)*mag, out=[];
+  for(let t=Math.ceil(a/step-1e-9)*step;t<=b+step*1e-9;t+=step) out.push(Math.abs(t)<step*1e-6?0:+t.toPrecision(12));
+  return out;
+}
+function css(k){return getComputedStyle(document.documentElement).getPropertyValue(k).trim();}
+
+function hist(d){
+  const c=new Float64Array(NB); let out=0, sum=0, sq=0;
+  for(let r=0;r<R;r++){
+    const v=SS[r]/d; sum+=v; sq+=(v-1)*(v-1);
+    const k=Math.floor(v/BW); if(k<NB) c[k]++; else out++;
+  }
+  let mx=0; for(let k=0;k<NB;k++){c[k]/=R*BW; if(c[k]>mx) mx=c[k];}
+  return {c,mx,out:out/R,mean:sum/R,mse:sq/R};
+}
+
+function draw(cv,h,d,color,ymax,meanTheory){
+  const dpr=window.devicePixelRatio||1, W=cv.clientWidth, H=cv.clientHeight; if(!W) return;
+  cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
+  const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  const muted=css('--muted'), line=css('--line'), fg=css('--fg'), exp=css('--exp'), col=css(color);
+  const L=40,Rr=12,T=30,B=34,pw=W-L-Rr,ph=H-T-B,base=T+ph;
+  const sx=v=>L+v/XMAX*pw, sy=v=>base-v/ymax*ph;
+  ctx.font='11px system-ui,sans-serif'; ctx.textAlign='right'; ctx.fillStyle=muted; ctx.strokeStyle=line; ctx.lineWidth=1;
+  for(const t of niceTicks(0,ymax,3)){const y=sy(t); ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(L+pw,y); ctx.setLineDash([2,4]); ctx.stroke(); ctx.setLineDash([]); ctx.fillText(fm(t,t<1?1:0),L-5,y+4);}
+  ctx.save(); ctx.beginPath(); ctx.rect(L,T-12,pw,ph+12); ctx.clip();
+  ctx.fillStyle=col; ctx.globalAlpha=.5;
+  for(let k=0;k<NB;k++){const x0=sx(k*BW),x1=sx((k+1)*BW),y=sy(h.c[k]); ctx.fillRect(x0,y,Math.max(.6,x1-x0-.4),base-y);}
+  ctx.globalAlpha=1; ctx.strokeStyle=fg; ctx.lineWidth=1.8; ctx.beginPath(); let st=false;
+  for(let k=1;k<=500;k++){const x=XMAX*k/500, v=dens(x,d); if(!isFinite(v)){st=false;continue;} const px=sx(x),py=sy(v); st?ctx.lineTo(px,py):ctx.moveTo(px,py); st=true;}
+  ctx.stroke(); ctx.restore();
+  ctx.strokeStyle=muted; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(L,base); ctx.lineTo(L+pw,base); ctx.stroke();
+  ctx.fillStyle=muted; ctx.textAlign='center';
+  for(const t of niceTicks(0,XMAX,8)){const x=sx(t); ctx.beginPath(); ctx.moveTo(x,base); ctx.lineTo(x,base+4); ctx.stroke(); ctx.fillText(t,x,base+16);}
+  ctx.fillText('variance estimate',L+pw/2,H-4);
+  // sigma^2 and mean lines
+  const xs=sx(1), xm=sx(meanTheory), nearlyOverlap=Math.abs(xs-xm)<1.5;
+  ctx.lineWidth=1.7; ctx.strokeStyle=fg; ctx.beginPath(); ctx.moveTo(xs,T-4); ctx.lineTo(xs,base); ctx.stroke();
+  ctx.strokeStyle=exp; ctx.setLineDash([5,3]); ctx.beginPath(); ctx.moveTo(xm,T-4); ctx.lineTo(xm,base); ctx.stroke(); ctx.setLineDash([]);
+  ctx.font='600 11px system-ui,sans-serif';
+  if(nearlyOverlap){
+    ctx.fillStyle=fg; ctx.textAlign='left';
+    ctx.fillText(meanTheory===1?'σ² = E[estimate] = 1':'σ² and E[estimate] nearly overlap',xs+4,T-10);
+  }
+  else{
+    const left=xm<xs;
+    ctx.fillStyle=fg; ctx.textAlign=left?'left':'right'; ctx.fillText('σ² = 1',xs+(left?4:-4),T-10);
+    ctx.fillStyle=exp; ctx.textAlign=left?'right':'left'; ctx.fillText('E = '+fm(meanTheory,2),xm+(left?-4:4),T-10);
+    if(Math.abs(xs-xm)>5){const y=T+6,a=Math.min(xs,xm),b=Math.max(xs,xm); ctx.strokeStyle=exp; ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(a,y); ctx.lineTo(b,y); ctx.moveTo(a,y-3); ctx.lineTo(a,y+3); ctx.moveTo(b,y-3); ctx.lineTo(b,y+3); ctx.stroke();}
+  }
+  if(h.out>0.0005){ctx.fillStyle=muted; ctx.font='11px system-ui,sans-serif'; ctx.textAlign='right'; ctx.fillText((h.out*100).toFixed(1)+'% of estimates > '+XMAX+' not shown',L+pw-4,T+16);}
+}
+
+function table(id,bias,vr,mse,hsim,win){
+  $(id).innerHTML=
+    '<tr><td class="muted">Bias</td><td><b>'+fm(bias)+'</b></td></tr>'+
+    '<tr><td class="muted">Variance</td><td><b>'+fm(vr)+'</b></td></tr>'+
+    '<tr class="mse"><td>MSE</td><td class="'+(win?'win':'')+'">'+fm(mse)+(win?' ✓':'')+'</td></tr>'+
+    '<tr><td class="muted">MSE from the simulation</td><td class="muted">'+fm(hsim.mse)+'</td></tr>';
+}
+
+function update(){
+  $('nv').textContent=n;
+  $('densityNote').hidden=n!==2;
+  computeSS();
+  const hA=hist(n), hB=hist(n-1);
+  const ymax=1.12*Math.max(hA.mx,hB.mx,1e-9);
+  // theory
+  const biasA=-1/n, varA=2*(n-1)/(n*n), mseA=(2*n-1)/(n*n);
+  const biasB=0, varB=2/(n-1), mseB=2/(n-1);
+  // some exact density peaks can exceed histogram peak at n=2 (infinite at 0): clip by ymax
+  draw($('cA'),hA,n,'--accent',ymax,(n-1)/n);
+  draw($('cB'),hB,n-1,'--teal',ymax,1);
+  table('tA',biasA,varA,mseA,hA,mseA<mseB);
+  table('tB',biasB,varB,mseB,hB,mseB<mseA);
+  $('verdict').innerHTML='Dividing by <b>n</b> is biased low by σ²/n = '+fm(1/n)+', but its variance is smaller by the factor ((n−1)/n)², so its MSE (2n−1)/n² = <b>'+fm(mseA)+
+    '</b> beats <b>'+fm(mseB)+'</b> for the unbiased S². As n grows, both MSEs tend to 0, and both estimators converge in probability to σ² = 1.';
+}
+
+const nFrom=v=>Math.max(2,Math.round(2*Math.pow(NMAX/2,v/1000)));
+const vFrom=nn=>1000*Math.log(nn/2)/Math.log(NMAX/2);
+$('n').addEventListener('input',e=>{const nn=nFrom(+e.target.value); if(nn!==n){n=nn;update();}});
+for(const b of document.querySelectorAll('.presets button')) b.addEventListener('click',()=>{n=+b.dataset.n;$('n').value=vFrom(n);update();});
+$('redraw').addEventListener('click',()=>{newDraw();update();});
+window.addEventListener('resize',update);
+if(window.ResizeObserver) new ResizeObserver(update).observe($('cA'));
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',update);
+newDraw(); update();
+})();
+</script>
+</body>
+</html>

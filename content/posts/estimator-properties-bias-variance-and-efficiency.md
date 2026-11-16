@@ -72,6 +72,8 @@ $$
 \lt \frac{2}{n-1}\sigma^4=\operatorname{MSE}(s^2).
 $$
 
+[Compare variance estimators with divisors $n$ and $n-1$](/visualizations/variance-divisor/). Start with a small sample and compare how the reduction in variance outweighs the squared bias.
+
 **Shrinking the mean toward zero.** Given three i.i.d. observations $Y_i$ with mean $\mu$ and variance $\sigma^2>0$, consider $\hat\mu_\gamma=\gamma\sum_{i=1}^3Y_i$. The estimator is unbiased at $\gamma=1/3$. For fixed $\mu$ and $\sigma^2$, the MSE and its minimizer are
 
 $$
