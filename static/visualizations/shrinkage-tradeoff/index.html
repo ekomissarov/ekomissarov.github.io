@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shrinkage: variance versus bias</title>
+<style>
+:root{
+  --bg:#f7f7f4; --fg:#1f2430; --muted:#6b7280; --card:#ffffff; --line:#e1e4ea;
+  --accent:#2563eb; --var:#2563eb; --bias:#ea580c; --mse:#1f2430; --ok:#15803d; --bad:#dc2626; --good:#15803d;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#14161b; --fg:#e6e8ee; --muted:#9aa3b2; --card:#1d2027; --line:#2c313b;
+        --accent:#6aa0ff; --var:#6aa0ff; --bias:#fb923c; --mse:#f3f4f6; --ok:#4ade80; --bad:#f87171; --good:#4ade80;}
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 18px;max-width:84ch}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.card h2{font-size:15px;margin:0 0 2px;font-weight:600}
+.cap{color:var(--muted);font-size:12.5px;margin:0 0 6px;min-height:18px;font-variant-numeric:tabular-nums}
+.row{display:flex;flex-wrap:wrap;gap:14px 24px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:5px;min-width:300px;flex:1 1 300px}
+.field label{font-size:12.5px;color:var(--muted)}
+.val{font-variant-numeric:tabular-nums;color:var(--fg);font-weight:600}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.check{display:flex;gap:7px;align-items:center;font-size:14px}
+button{font:inherit;color:var(--fg);border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:8px 14px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:860px){.two{grid-template-columns:1fr}}
+.two .card{margin-bottom:0;padding:12px 14px}
+canvas{width:100%;height:320px;display:block}
+.chips{display:flex;flex-wrap:wrap;gap:8px 22px;margin-top:16px;font-size:14px;font-variant-numeric:tabular-nums}
+.chip{display:flex;align-items:center;gap:7px;color:var(--muted)}
+.chip i{width:12px;height:12px;border-radius:3px;display:inline-block}
+.chip b{color:var(--fg);font-weight:700}
+.verdict{margin-top:10px;font-size:14px;color:var(--muted);min-height:22px}
+.verdict b.good{color:var(--ok)} .verdict b.bad{color:var(--bad)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;color:var(--muted);font-size:13px;margin-top:8px}
+.legend i{display:inline-block;width:18px;height:0;border-top:3px solid;vertical-align:middle;margin-right:6px}
+.legend i.bar{height:10px;border:0;background:var(--accent);opacity:.5;border-radius:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Shrinkage: variance falls, bias grows</h1>
+  <p class="sub">Three observations from N(2, 9). The estimator μ̂<sub>λ</sub> = 3/(3+λ) · Ȳ shrinks the sample mean toward 0. With a small penalty λ, the reduction in variance outweighs the increase in squared bias. At sufficiently large λ, the increase in squared bias outweighs the reduction in variance.</p>
+
+  <div class="card">
+    <div class="row">
+      <div class="field">
+        <label for="lam">Penalty λ: <span class="val" id="lamv">0.00</span> · shrinkage factor 3/(3+λ) = <span class="val" id="cv">1.000</span></label>
+        <input type="range" id="lam" min="0" max="20" step="0.01" value="0">
+      </div>
+      <button id="opt" type="button">Jump to the optimum</button>
+      <label class="check"><input type="checkbox" id="fixy"> Fix vertical scale on the left</label>
+      <button id="redraw" type="button">New draw</button>
+    </div>
+  </div>
+
+  <div class="two">
+    <div class="card">
+      <h2>Distribution of the estimate over repeated samples</h2>
+      <p class="cap" id="capL"></p>
+      <canvas id="cL"></canvas>
+    </div>
+    <div class="card">
+      <h2>Why quality first improves, then worsens</h2>
+      <p class="cap">variance + bias² = MSE, as functions of λ</p>
+      <canvas id="cR"></canvas>
+    </div>
+  </div>
+
+  <div class="chips" id="chips"></div>
+  <div class="verdict" id="verdict"></div>
+  <div class="legend">
+    <span><i class="bar"></i>20,000 simulated samples</span>
+    <span><i style="border-color:var(--fg)"></i>exact density of μ̂<sub>λ</sub></span>
+    <span><i style="border-color:var(--bias);border-top-style:dashed"></i>mean of the estimate</span>
+  </div>
+</div>
+
+<script>
+(function(){
+const MU=2, S2=9, N=3, R=20000, LMAX=20;
+const SE=Math.sqrt(S2/N); // sd of the sample mean = sqrt(3)
+const $=id=>document.getElementById(id);
+const Z=new Float64Array(R);
+let lam=0, fixy=false, spare=null;
+function gauss(){
+  if(spare!==null){const s=spare;spare=null;return s;}
+  let u=0; while(u===0) u=Math.random(); const v=Math.random(), r=Math.sqrt(-2*Math.log(u));
+  spare=r*Math.sin(2*Math.PI*v); return r*Math.cos(2*Math.PI*v);
+}
+function newDraw(){for(let i=0;i<R;i++) Z[i]=gauss();}
+const cOf=l=>N/(N+l);
+const varOf=l=>{const c=cOf(l);return c*c*S2/N;};
+const bias=l=>(cOf(l)-1)*MU;
+const b2Of=l=>{const b=bias(l);return b*b;};
+const mseOf=l=>varOf(l)+b2Of(l);
+const LOPT=S2/(MU*MU), // optimal lambda = sigma^2/mu^2 = 2.25
+      MOPT=mseOf(LOPT);
+function fm(v,d){return (Math.abs(v)<1e-9?0:v).toFixed(d===undefined?2:d);}
+function niceTicks(a,b,count){
+  const step0=(b-a)/count, mag=Math.pow(10,Math.floor(Math.log10(step0))), err=step0/mag;
+  const step=(err>=7.5?10:err>=3.5?5:err>=1.5?2:1)*mag, out=[];
+  for(let t=Math.ceil(a/step-1e-9)*step;t<=b+step*1e-9;t+=step) out.push(Math.abs(t)<step*1e-6?0:+t.toPrecision(12));
+  return out;
+}
+function css(k){return getComputedStyle(document.documentElement).getPropertyValue(k).trim();}
+function setup(cv){
+  const dpr=window.devicePixelRatio||1, W=cv.clientWidth, H=cv.clientHeight; if(!W) return null;
+  cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
+  const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,H);
+  return {ctx,W,H};
+}
+function arrow(ctx,xa,xb,y,color){
+  const d=Math.sign(xb-xa); if(Math.abs(xb-xa)<2) return;
+  ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(xa,y); ctx.lineTo(xb,y); ctx.stroke();
+  const h=Math.min(7,Math.abs(xb-xa)*.6);
+  ctx.beginPath(); ctx.moveTo(xb,y); ctx.lineTo(xb-d*h,y-4); ctx.lineTo(xb-d*h,y+4); ctx.closePath(); ctx.fill();
+}
+
+/* ---------- left ---------- */
+const LO=-4, HI=8;
+function drawLeft(){
+  const s=setup($('cL')); if(!s) return; const {ctx,W,H}=s;
+  const muted=css('--muted'), line=css('--line'), accent=css('--accent'), fg=css('--fg'), bc=css('--bias');
+  const L=40,Rr=12,T=34,B=34,pw=W-L-Rr,ph=H-T-B,base=T+ph;
+  const c=cOf(lam), m=c*MU, sd=c*SE;
+  const bw=Math.min(0.25,Math.max(0.02,sd/4)), nb=Math.round((HI-LO)/bw), cnt=new Float64Array(nb);
+  for(let i=0;i<R;i++){const k=Math.floor((c*(MU+SE*Z[i])-LO)/bw); if(k>=0&&k<nb) cnt[k]++;}
+  let mx=0; for(let k=0;k<nb;k++){cnt[k]/=R*bw; if(cnt[k]>mx) mx=cnt[k];}
+  const peak=1/(sd*Math.sqrt(2*Math.PI));
+  const peakMax=1/(SE*cOf(LMAX)*Math.sqrt(2*Math.PI));
+  const ymax=(fixy?peakMax:Math.max(peak,mx))*1.15;
+  const sx=v=>L+(v-LO)/(HI-LO)*pw, sy=v=>base-v/ymax*ph;
+  ctx.font='11px system-ui,sans-serif'; ctx.textAlign='right'; ctx.fillStyle=muted; ctx.strokeStyle=line; ctx.lineWidth=1;
+  for(const t of niceTicks(0,ymax,3)){
+    const y=sy(t); ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(L+pw,y); ctx.setLineDash([2,4]); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillText(fm(t,t<1?1:0),L-5,y+4);
+  }
+  ctx.save(); ctx.beginPath(); ctx.rect(L,T-12,pw,ph+12); ctx.clip();
+  ctx.fillStyle=accent; ctx.globalAlpha=.5;
+  for(let k=0;k<nb;k++){const x0=sx(LO+k*bw),x1=sx(LO+(k+1)*bw),y=sy(cnt[k]); ctx.fillRect(x0,y,Math.max(.6,x1-x0),base-y);}
+  ctx.globalAlpha=1; ctx.strokeStyle=fg; ctx.lineWidth=2; ctx.beginPath();
+  for(let k=0;k<=600;k++){const x=LO+(HI-LO)*k/600, z=(x-m)/sd, v=Math.exp(-.5*z*z)/(sd*Math.sqrt(2*Math.PI)); k?ctx.lineTo(sx(x),sy(v)):ctx.moveTo(sx(x),sy(v));}
+  ctx.stroke(); ctx.restore();
+  ctx.strokeStyle=muted; ctx.lineWidth=1; ctx.beginPath(); ctx.moveTo(L,base); ctx.lineTo(L+pw,base); ctx.stroke();
+  ctx.fillStyle=muted; ctx.textAlign='center';
+  for(const t of niceTicks(LO,HI,12)){const x=sx(t); ctx.beginPath(); ctx.moveTo(x,base); ctx.lineTo(x,base+4); ctx.stroke(); ctx.fillText(t,x,base+16);}
+  ctx.fillText('estimate',L+pw/2,H-4);
+  // zero and mu
+  ctx.lineWidth=1.6; ctx.strokeStyle=muted; ctx.beginPath(); ctx.moveTo(sx(0),T-4); ctx.lineTo(sx(0),base); ctx.stroke();
+  ctx.strokeStyle=fg; ctx.beginPath(); ctx.moveTo(sx(MU),T-4); ctx.lineTo(sx(MU),base); ctx.stroke();
+  ctx.font='600 11px system-ui,sans-serif'; ctx.textAlign='right'; ctx.fillStyle=muted; ctx.fillText('0',sx(0)-4,T-10);
+  ctx.fillStyle=fg; ctx.textAlign='left'; ctx.fillText('μ = 2',sx(MU)+4,T-10);
+  // mean of estimate + bias arrow
+  ctx.strokeStyle=bc; ctx.lineWidth=1.6; ctx.setLineDash([5,3]); ctx.beginPath(); ctx.moveTo(sx(m),T+6); ctx.lineTo(sx(m),base); ctx.stroke(); ctx.setLineDash([]);
+  const ya=T+14; arrow(ctx,sx(MU),sx(m),ya,bc);
+  if(Math.abs(sx(MU)-sx(m))>26){
+    const txt='bias = '+fm(bias(lam)), cx=(sx(MU)+sx(m))/2, tw=ctx.measureText(txt).width;
+    ctx.fillStyle=css('--card'); ctx.fillRect(cx-tw/2-3,ya-19,tw+6,13);
+    ctx.fillStyle=bc; ctx.textAlign='center'; ctx.fillText(txt,cx,ya-8);}
+  $('capL').textContent='μ̂ ~ N(cμ, c²σ²/n) = N('+fm(m)+', '+fm(sd*sd)+'), c = '+fm(c,3);
+}
+
+/* ---------- right ---------- */
+const YMAX=3.6;
+function drawRight(){
+  const s=setup($('cR')); if(!s) return; const {ctx,W,H}=s;
+  const muted=css('--muted'), line=css('--line'), fg=css('--fg'), cv=css('--var'), cb=css('--bias'), cm=css('--mse'), ok=css('--ok');
+  const L=40,Rr=14,T=26,B=34,pw=W-L-Rr,ph=H-T-B,base=T+ph;
+  const sx=l=>L+l/LMAX*pw, sy=v=>base-v/YMAX*ph;
+  ctx.font='11px system-ui,sans-serif'; ctx.textAlign='right'; ctx.fillStyle=muted; ctx.strokeStyle=line; ctx.lineWidth=1;
+  for(const t of niceTicks(0,YMAX,4)){const y=sy(t); ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(L+pw,y); ctx.setLineDash([2,4]); ctx.stroke(); ctx.setLineDash([]); ctx.fillText(t,L-5,y+4);}
+  ctx.strokeStyle=muted; ctx.beginPath(); ctx.moveTo(L,base); ctx.lineTo(L+pw,base); ctx.stroke();
+  ctx.textAlign='center';
+  for(const t of niceTicks(0,LMAX,10)){const x=sx(t); ctx.beginPath(); ctx.moveTo(x,base); ctx.lineTo(x,base+4); ctx.stroke(); ctx.fillText(t,x,base+16);}
+  ctx.fillText('penalty λ',L+pw/2,H-4);
+  ctx.save(); ctx.translate(11,T+ph/2); ctx.rotate(-Math.PI/2); ctx.fillText('error',0,0); ctx.restore();
+  // reference: unbiased Ybar MSE
+  ctx.strokeStyle=muted; ctx.lineWidth=1.2; ctx.setLineDash([2,3]); ctx.beginPath(); ctx.moveTo(L,sy(S2/N)); ctx.lineTo(L+pw,sy(S2/N)); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle=muted; ctx.textAlign='left'; ctx.fillText('unbiased Ȳ (λ = 0): MSE = 3',sx(6),sy(S2/N)-5);
+  // curves
+  function curve(f,color,w){ctx.strokeStyle=color; ctx.lineWidth=w; ctx.beginPath(); for(let k=0;k<=400;k++){const l=LMAX*k/400; k?ctx.lineTo(sx(l),sy(f(l))):ctx.moveTo(sx(l),sy(f(l)));} ctx.stroke();}
+  curve(varOf,cv,2); curve(b2Of,cb,2); curve(mseOf,cm,3.4);
+  ctx.font='600 11px system-ui,sans-serif'; ctx.textAlign='left';
+  ctx.fillStyle=cv; ctx.fillText('variance',sx(14),sy(varOf(14))-7);
+  ctx.fillStyle=cb; ctx.fillText('bias²',sx(LMAX*0.62),sy(b2Of(LMAX*0.62))+14);
+  ctx.fillStyle=cm; ctx.fillText('MSE',sx(9),sy(mseOf(9))-9);
+  // optimum
+  ctx.strokeStyle=ok; ctx.fillStyle=ok; ctx.lineWidth=1.4;
+  ctx.beginPath(); ctx.moveTo(sx(LOPT),sy(MOPT)); ctx.lineTo(sx(LOPT),sy(2.75)); ctx.stroke();
+  ctx.beginPath(); ctx.arc(sx(LOPT),sy(MOPT),5.5,0,6.3); ctx.fill();
+  ctx.textAlign='left'; ctx.fillText('min MSE = '+fm(MOPT)+' at λ = '+fm(LOPT),sx(LOPT)+6,sy(2.75)+4);
+  // tie point with unbiased
+  const tieLambda=18;
+  ctx.fillStyle=muted;
+  ctx.beginPath();
+  ctx.arc(sx(tieLambda),sy(S2/N),3.5,0,2*Math.PI);
+  ctx.fill();
+  // cursor
+  const xc=sx(lam);
+  ctx.strokeStyle=fg; ctx.lineWidth=1.3; ctx.setLineDash([4,3]); ctx.beginPath(); ctx.moveTo(xc,T-8); ctx.lineTo(xc,base); ctx.stroke(); ctx.setLineDash([]);
+  for(const [f,col] of [[varOf,cv],[b2Of,cb],[mseOf,cm]]){ctx.fillStyle=col; ctx.beginPath(); ctx.arc(xc,sy(f(lam)),4.5,0,6.3); ctx.fill();}
+  ctx.fillStyle=fg; ctx.textAlign=xc>L+pw-30?'right':'center'; ctx.fillText('λ = '+fm(lam),xc,T-12);
+}
+
+function update(){
+  $('lamv').textContent=fm(lam); $('cv').textContent=fm(cOf(lam),3);
+  drawLeft(); drawRight();
+  const v=varOf(lam), b2=b2Of(lam), mse=v+b2;
+  $('chips').innerHTML=
+    '<span class="chip"><i style="background:var(--var)"></i>variance <b>'+fm(v)+'</b></span>'+
+    '<span class="chip"><i style="background:var(--bias)"></i>bias² <b>'+fm(b2)+'</b> (bias '+fm(bias(lam))+')</span>'+
+    '<span class="chip"><i style="background:var(--mse)"></i>MSE <b>'+fm(mse)+'</b></span>';
+  const base=S2/N, d=(base-mse)/base*100;
+  let t;
+  if(lam<1e-9) t='λ = 0 is the plain sample mean Ȳ: unbiased, MSE = 3.';
+  else if(Math.abs(lam-LOPT)<0.005) t='<b class="good">This is the optimum.</b> MSE falls from 3 to '+fm(MOPT)+' ('+fm((base-MOPT)/base*100,0)+'% lower).';
+  else if(mse<base-1e-9) t=(lam<LOPT?'Still improving: ':'Past the optimum: ')+'MSE is <b class="good">'+fm(Math.abs(d),0)+'% lower</b> than Ȳ'+(lam>LOPT?', but rising again as bias² grows faster than the variance falls.':'.');
+  else t='Too much shrinkage: MSE is <b class="bad">'+(mse>base+1e-9?fm(-d,0)+'% higher':'no better')+'</b> than the plain sample mean.';
+  $('verdict').innerHTML=t;
+}
+
+$('lam').addEventListener('input',e=>{lam=parseFloat(e.target.value);update();});
+$('opt').addEventListener('click',()=>{lam=LOPT;$('lam').value=lam;update();});
+$('fixy').addEventListener('change',e=>{fixy=e.target.checked;update();});
+$('redraw').addEventListener('click',()=>{newDraw();update();});
+window.addEventListener('resize',update);
+if(window.ResizeObserver) new ResizeObserver(update).observe($('cL'));
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',update);
+newDraw(); update();
+})();
+</script>
+</body>
+</html>

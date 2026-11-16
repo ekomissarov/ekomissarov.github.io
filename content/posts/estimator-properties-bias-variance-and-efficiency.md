@@ -94,6 +94,8 @@ $$
 
 At $\lambda=0$, the estimator is $\bar Y_3$. Increasing $\lambda$ reduces variance and shrinks the estimate toward zero. For $\mu\ne0$, MSE is minimized at $\lambda_*=\sigma^2/\mu^2$. This optimum depends on the unknown population parameters. If $\mu=0$, the minimum is approached as $\lambda\to\infty$.
 
+[Explore the bias–variance trade-off in shrinkage](/visualizations/shrinkage-tradeoff/). Move the penalty slider to see where the reduction in variance outweighs the increase in squared bias.
+
 ## Fisher Information and the Cramér–Rao Bound
 
 [Explore the Cramér–Rao bound for Bernoulli trials](/visualizations/cramer-rao-bernoulli/). Increase the number of trials to see how the variance of the sample proportion follows the bound and how it compares with using just the first trial.
