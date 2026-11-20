@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Мемо: найди пару</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --panel: #ffffff;
+    --text: #1d2330;
+    --muted: #6b7280;
+    --accent: #3b6cf6;
+    --accent-dark: #2c55cc;
+    --back1: #3b6cf6;
+    --back2: #6d93ff;
+    --face: #ffffff;
+    --matched: #d7f5e0;
+    --matched-border: #43b36b;
+    --error: #c62828;
+    --error-bg: #fdecec;
+    --border: #d9dce3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171d;
+      --panel: #1e232c;
+      --text: #e8ebf2;
+      --muted: #9aa3b2;
+      --face: #262c37;
+      --matched: #1f3a2a;
+      --error: #ff8a80;
+      --error-bg: #3a1f1f;
+      --border: #384050;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 16px;
+  }
+  .app { width: 100%; max-width: 760px; }
+  h1 { font-size: 1.4rem; margin: 4px 0 14px; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 14px;
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+  label { display: flex; flex-direction: column; font-size: .8rem; color: var(--muted); gap: 4px; }
+  input[type="number"], input[type="text"] {
+    font: inherit;
+    font-size: 1rem;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+  }
+  input[type="number"] { width: 80px; }
+  input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  input.invalid { border-color: var(--error); outline-color: var(--error); }
+  .sep { align-self: flex-end; padding-bottom: 10px; color: var(--muted); }
+  .syl-wrap { margin-top: 12px; }
+  .syl-wrap input { width: 100%; }
+  .counter { font-size: .8rem; color: var(--muted); margin-top: 4px; }
+  .counter.bad { color: var(--error); }
+
+  .errors {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: var(--error-bg);
+    color: var(--error);
+    border-radius: 8px;
+    font-size: .9rem;
+    display: none;
+  }
+  .errors.show { display: block; }
+  .errors ul { margin: 0; padding-left: 18px; }
+
+  .buttons { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  button {
+    font: inherit;
+    padding: 9px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary:hover:not(:disabled) { background: var(--accent-dark); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+
+  .stats { display: flex; gap: 20px; font-size: .95rem; margin-bottom: 10px; flex-wrap: wrap; }
+  .stats b { font-variant-numeric: tabular-nums; }
+
+  .board {
+    display: grid;
+    gap: 8px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .card {
+    aspect-ratio: 1 / 1;
+    perspective: 700px;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform .35s;
+  }
+  .card.flipped .card-inner, .card.matched .card-inner { transform: rotateY(180deg); }
+  .side {
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .back {
+    background: repeating-linear-gradient(45deg, var(--back1), var(--back1) 8px, var(--back2) 8px, var(--back2) 16px);
+    border: 2px solid var(--accent-dark);
+  }
+  .face {
+    background: var(--face);
+    border: 2px solid var(--border);
+    transform: rotateY(180deg);
+    font-weight: 700;
+    font-size: clamp(1rem, 5vw, 2rem);
+    padding: 2px;
+    overflow: hidden;
+    word-break: break-all;
+    text-align: center;
+  }
+  .card.matched .face { background: var(--matched); border-color: var(--matched-border); }
+  .card.matched { cursor: default; }
+
+  .win {
+    display: none;
+    text-align: center;
+    padding: 14px;
+    margin-top: 14px;
+    border-radius: 12px;
+    background: var(--matched);
+    border: 1px solid var(--matched-border);
+    font-weight: 600;
+  }
+  .win.show { display: block; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Мемо: найди пару</h1>
+
+  <div class="panel">
+    <div class="row">
+      <label>Столбцов (m)
+        <input type="number" id="cols" value="5" min="1" max="10" step="1">
+      </label>
+      <span class="sep">×</span>
+      <label>Строк (n)
+        <input type="number" id="rows" value="4" min="1" max="10" step="1">
+      </label>
+      <div class="counter" id="sizeInfo" style="margin:0 0 8px 8px"></div>
+    </div>
+
+    <div class="syl-wrap">
+      <label for="syllables">Слоги через запятую</label>
+      <input type="text" id="syllables" value="ма, ро, ки, ту, ля, бе, со, ду, фи, на" autocomplete="off" spellcheck="false">
+      <div class="counter" id="sylCounter"></div>
+    </div>
+
+    <div class="errors" id="errors"></div>
+
+    <div class="buttons">
+      <button class="primary" id="startBtn">Новая игра</button>
+      <button id="fillBtn" title="Подставить случайные слоги нужного количества">Подставить слоги</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <span>Ходы: <b id="moves">0</b></span>
+    <span>Пары: <b id="pairs">0</b> / <b id="pairsTotal">0</b></span>
+    <span>Время: <b id="time">0:00</b></span>
+  </div>
+
+  <div class="board" id="board"></div>
+  <div class="win" id="win"></div>
+</div>
+
+<script>
+(function () {
+  const MAX_SIDE = 10;
+  const SPARE = ["ма","ро","ки","ту","ля","бе","со","ду","фи","на","ша","ви","го","зе","пу","ты","хо","ци","жа","не",
+                 "ра","ли","мо","су","ка","ве","до","пи","та","ны","ба","же","чу","ще","юм","эр","ой","ук","ап","ис",
+                 "ор","ем","аз","ут","ив","ол","эф","ян","юр","ед","ах","ум","ыш","ор","щи","кы","зу","ню","гю","дя",
+                 "ро","ми","ту","ше","фо","хи","ци","чо","ба","ле","сы","ды","ня","ко","ге","пя","мю","ря","сю","ты",
+                 "ва","жи","зо","ло","пе","ри","ше","ти","хе","цу","чи","ща","ку","га","бо","ди","му","не","со","фу"];
+
+  const $ = id => document.getElementById(id);
+  const colsEl = $("cols"), rowsEl = $("rows"), sylEl = $("syllables");
+  const boardEl = $("board"), errorsEl = $("errors");
+  const startBtn = $("startBtn");
+
+  let state = null;
+  let timerId = null;
+
+  function parseInput() {
+    const cols = Number(colsEl.value);
+    const rows = Number(rowsEl.value);
+    const raw = sylEl.value;
+    const items = raw.trim() === "" ? [] : raw.split(",").map(s => s.trim());
+    return { cols, rows, items, raw };
+  }
+
+  function validate() {
+    const { cols, rows, items, raw } = parseInput();
+    const errors = [];
+    const bad = { cols: false, rows: false, syl: false };
+
+    const intOk = (v, el) => el.value.trim() !== "" && Number.isInteger(v) && v >= 1 && v <= MAX_SIDE;
+    if (!intOk(cols, colsEl)) { errors.push(`Столбцов должно быть целое число от 1 до ${MAX_SIDE}.`); bad.cols = true; }
+    if (!intOk(rows, rowsEl)) { errors.push(`Строк должно быть целое число от 1 до ${MAX_SIDE}.`); bad.rows = true; }
+
+    let needed = null;
+    if (!bad.cols && !bad.rows) {
+      const total = cols * rows;
+      if (total < 2) {
+        errors.push("Поле должно содержать минимум 2 карточки.");
+        bad.cols = bad.rows = true;
+      } else if (total % 2 !== 0) {
+        errors.push(`Поле ${cols}×${rows} содержит ${total} карточек: нечётное число, пары не получатся. Измените размер.`);
+        bad.cols = bad.rows = true;
+      } else {
+        needed = total / 2;
+      }
+    }
+
+    if (raw.trim() === "") {
+      errors.push("Укажите слоги через запятую.");
+      bad.syl = true;
+    } else {
+      if (items.some(s => s === "")) {
+        errors.push("Есть пустой слог (лишняя запятая или два разделителя подряд).");
+        bad.syl = true;
+      }
+      const nonEmpty = items.filter(s => s !== "");
+      const lower = nonEmpty.map(s => s.toLowerCase());
+      const dups = [...new Set(lower.filter((s, i) => lower.indexOf(s) !== i))];
+      if (dups.length) {
+        errors.push(`Слоги повторяются: ${dups.join(", ")}. Каждый слог должен быть уникальным, иначе пары будут неоднозначны.`);
+        bad.syl = true;
+      }
+      if (needed !== null) {
+        if (nonEmpty.length < needed) {
+          errors.push(`Слогов слишком мало: указано ${nonEmpty.length}, нужно ровно ${needed}.`);
+          bad.syl = true;
+        } else if (nonEmpty.length > needed) {
+          errors.push(`Слогов слишком много: указано ${nonEmpty.length}, нужно ровно ${needed}.`);
+          bad.syl = true;
+        }
+      }
+    }
+
+    return { errors, bad, needed, cols, rows, syllables: items.filter(s => s !== "") };
+  }
+
+  function refreshUI() {
+    const v = validate();
+    colsEl.classList.toggle("invalid", v.bad.cols);
+    rowsEl.classList.toggle("invalid", v.bad.rows);
+    sylEl.classList.toggle("invalid", v.bad.syl);
+
+    const sizeInfo = $("sizeInfo");
+    if (v.needed !== null) {
+      sizeInfo.textContent = `Карточек: ${v.cols * v.rows}, пар: ${v.needed}`;
+    } else {
+      sizeInfo.textContent = "";
+    }
+
+    const counter = $("sylCounter");
+    const count = v.syllables.length;
+    counter.textContent = v.needed !== null
+      ? `Указано слогов: ${count}, нужно: ${v.needed}`
+      : `Указано слогов: ${count}`;
+    counter.classList.toggle("bad", v.bad.syl);
+
+    if (v.errors.length) {
+      errorsEl.innerHTML = "<ul>" + v.errors.map(e => `<li>${escapeHtml(e)}</li>`).join("") + "</ul>";
+      errorsEl.classList.add("show");
+    } else {
+      errorsEl.classList.remove("show");
+      errorsEl.innerHTML = "";
+    }
+    startBtn.disabled = v.errors.length > 0;
+    return v;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function fmtTime(sec) {
+    const m = Math.floor(sec / 60), s = sec % 60;
+    return `${m}:${String(s).padStart(2, "0")}`;
+  }
+
+  function stopTimer() { if (timerId) { clearInterval(timerId); timerId = null; } }
+
+  function startGame() {
+    const v = refreshUI();
+    if (v.errors.length) return;
+    stopTimer();
+
+    const deck = shuffle([...v.syllables, ...v.syllables].map((label, i) => ({ label, id: i })));
+    state = {
+      cols: v.cols, rows: v.rows,
+      deck, opened: [], locked: false,
+      moves: 0, found: 0, total: v.needed,
+      startedAt: null, elapsed: 0
+    };
+
+    $("moves").textContent = "0";
+    $("pairs").textContent = "0";
+    $("pairsTotal").textContent = String(v.needed);
+    $("time").textContent = "0:00";
+    $("win").classList.remove("show");
+
+    boardEl.style.gridTemplateColumns = `repeat(${v.cols}, 1fr)`;
+    // ограничим ширину поля, чтобы карточки не были огромными
+    boardEl.style.maxWidth = Math.min(740, v.cols * 130) + "px";
+    boardEl.innerHTML = "";
+    deck.forEach((c, idx) => {
+      const el = document.createElement("div");
+      el.className = "card";
+      el.dataset.idx = idx;
+      el.innerHTML = `<div class="card-inner"><div class="side back"></div><div class="side face">${escapeHtml(c.label)}</div></div>`;
+      el.addEventListener("click", () => onCard(idx, el));
+      boardEl.appendChild(el);
+    });
+  }
+
+  function onCard(idx, el) {
+    if (!state || state.locked) return;
+    if (el.classList.contains("flipped") || el.classList.contains("matched")) return;
+
+    if (state.startedAt === null) {
+      state.startedAt = Date.now();
+      timerId = setInterval(() => {
+        state.elapsed = Math.floor((Date.now() - state.startedAt) / 1000);
+        $("time").textContent = fmtTime(state.elapsed);
+      }, 250);
+    }
+
+    el.classList.add("flipped");
+    state.opened.push({ idx, el });
+
+    if (state.opened.length === 2) {
+      state.moves++;
+      $("moves").textContent = state.moves;
+      const [a, b] = state.opened;
+      if (state.deck[a.idx].label === state.deck[b.idx].label) {
+        a.el.classList.replace("flipped", "matched");
+        b.el.classList.replace("flipped", "matched");
+        state.opened = [];
+        state.found++;
+        $("pairs").textContent = state.found;
+        if (state.found === state.total) finish();
+      } else {
+        state.locked = true;
+        setTimeout(() => {
+          a.el.classList.remove("flipped");
+          b.el.classList.remove("flipped");
+          state.opened = [];
+          state.locked = false;
+        }, 900);
+      }
+    }
+  }
+
+  function finish() {
+    stopTimer();
+    state.elapsed = Math.floor((Date.now() - state.startedAt) / 1000);
+    $("time").textContent = fmtTime(state.elapsed);
+    const w = $("win");
+    w.textContent = `Готово! Ходов: ${state.moves}, время: ${fmtTime(state.elapsed)}.`;
+    w.classList.add("show");
+  }
+
+  function fillSyllables() {
+    const cols = Number(colsEl.value), rows = Number(rowsEl.value);
+    const total = cols * rows;
+    if (!Number.isInteger(total) || total < 2 || total % 2 !== 0) { refreshUI(); return; }
+    const need = total / 2;
+    const pool = shuffle([...new Set(SPARE)]);
+    const result = pool.slice(0, need);
+    // если встроенного набора не хватает, достраиваем комбинациями
+    const cons = "бвгдзклмнпрстфхцчш", vow = "аеиоуы";
+    let i = 0;
+    while (result.length < need) {
+      const s = cons[i % cons.length] + vow[Math.floor(i / cons.length) % vow.length];
+      if (!result.includes(s)) result.push(s);
+      i++;
+      if (i > 500) break;
+    }
+    sylEl.value = result.join(", ");
+    refreshUI();
+  }
+
+  [colsEl, rowsEl, sylEl].forEach(el => el.addEventListener("input", refreshUI));
+  startBtn.addEventListener("click", startGame);
+  $("fillBtn").addEventListener("click", fillSyllables);
+
+  startGame();
+})();
+</script>
+</body>
+</html>
