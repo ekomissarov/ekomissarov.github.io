@@ -96,6 +96,14 @@ svg{width:100%;height:auto;display:block}
       <div class="takeaway" id="take"></div>
     </div>
   </div>
+  <div class="card" style="margin-top:16px">
+    <h2>How MSE is calculated</h2>
+    <p>The target is 0. MSE is the expected squared error, found by multiplying each possible squared error by its probability and adding the contributions.</p>
+    <p class="calc">MSE(Zₙ; 0) = E[(Zₙ − 0)²] = Σ<sub>z ∈ {0, n}</sub> (z − 0)² P(Zₙ = z)</p>
+    <p class="calc">= (0 − 0)² × (1 − 1/n) + (n − 0)² × (1/n) = n</p>
+    <p class="calc" id="mseExample"></p>
+    <p class="calc">The zero outcome contributes 0. The nonzero outcome contributes its squared error n² multiplied by its probability 1/n. Squared error is measured from the target 0. Variance measures squared deviations from E[Zₙ] = 1, giving Var(Zₙ) = n − 1 and MSE = Var(Zₙ) + bias² = (n − 1) + 1² = n.</p>
+  </div>
 </div>
 
 <script>
@@ -156,6 +164,7 @@ function drawRight(){
   $('nE').textContent='nonzero outcome: (1/'+n+') × '+n+' = 1';
   $('calcM').innerHTML='MSE = '+n+'² × '+probability+' = <b>'+num(n)+'</b>';
   $('nM').textContent='nonzero outcome: (1/'+n+') × '+n+'² = '+num(n);
+  $('mseExample').innerHTML='At n = '+n+': MSE = 0² × (1 − 1/'+n+') + '+n+'² × (1/'+n+') = 0 + '+num(n)+' = <b>'+num(n)+'</b>.';
   $('bE').style.width=(1/NMAX*100)+'%';
   $('bM').style.width=(n/NMAX*100)+'%';
   $('take').innerHTML='Zₙ → 0 in probability: P(Zₙ ≠ 0) = 1/n = <b>'+pct(1/n)+'</b>. The mean stays at <b>1</b>, but the squared error of the rare outcome is n², so MSE = <b>'+num(n)+'</b> grows without bound.';
