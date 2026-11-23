@@ -1,0 +1,450 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Do 95% Intervals Cover 95%?</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: one coverage map per interval method, side by side (stacked on phones), a shared color scale, then a detail card with 100 example intervals for the clicked cell. */
+:root {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --fg: #1b2029;
+  --muted: #5a6372;
+  --grid: #e1e4ea;
+  --hit: #2b6cb0;
+  --miss: #d4521a;
+  --miss-text: #b8400f;
+  --heat-neutral: #eceef3;
+  --heat-under: #d4521a;
+  --heat-over: #2b6cb0;
+  --btn-bg: #1b2029;
+  --btn-fg: #ffffff;
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101319;
+    --surface: #181c24;
+    --fg: #e8ebf1;
+    --muted: #9aa3b2;
+    --grid: #2a303b;
+    --hit: #6fa8f2;
+    --miss: #ff8f5a;
+    --miss-text: #ff9d6e;
+    --heat-neutral: #272b36;
+    --heat-under: #ff8f5a;
+    --heat-over: #5aa2f0;
+    --btn-bg: #e8ebf1;
+    --btn-fg: #101319;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101319;
+  --surface: #181c24;
+  --fg: #e8ebf1;
+  --muted: #9aa3b2;
+  --grid: #2a303b;
+  --hit: #6fa8f2;
+  --miss: #ff8f5a;
+  --miss-text: #ff9d6e;
+  --heat-neutral: #272b36;
+  --heat-under: #ff8f5a;
+  --heat-over: #5aa2f0;
+  --btn-bg: #e8ebf1;
+  --btn-fg: #101319;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  padding-block: 28px 44px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1140px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(24px, 4vw, 32px); line-height: 1.15; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+.sub { color: var(--muted); margin: 6px 0 0; max-width: 72ch; }
+.card { background: var(--surface); border: 1px solid var(--grid); border-radius: 12px; }
+.maps { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); gap: 20px; }
+.panel { padding: 16px 16px 12px; min-width: 0; }
+.panel h2 { font-family: var(--font-display); font-weight: 500; font-size: 17px; margin: 0; }
+.panel .formula { color: var(--muted); font-size: 13px; margin: 2px 0 10px; }
+svg { display: block; width: 100%; overflow: visible; }
+svg text { font-family: var(--font-body); font-size: 12px; fill: var(--muted); }
+svg text.fg { fill: var(--fg); font-weight: 500; }
+svg text.small { font-size: 10.5px; }
+svg .cell { cursor: pointer; }
+svg .cell:focus { outline: none; }
+svg .cell:focus-visible rect { stroke: var(--fg); stroke-width: 2; }
+svg .cell:hover rect { stroke: var(--fg); stroke-width: 1.5; }
+.scale { position: relative; padding-bottom: 22px; }
+.scalebar { height: 12px; border-radius: 6px; border: 1px solid var(--grid); }
+.scale .t { position: absolute; top: 18px; font-size: 12px; color: var(--muted); transform: translateX(-50%); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.scale .t.first { transform: none; }
+.scale .t.last { transform: translateX(-100%); }
+.scale .t.nom { color: var(--fg); font-weight: 600; }
+.scale .tick { position: absolute; top: -3px; width: 2px; height: 18px; background: var(--fg); transform: translateX(-1px); }
+.scalecap { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+.takeaway { font-family: var(--font-display); font-size: clamp(17px, 2.6vw, 21px); font-weight: 500; line-height: 1.35; margin: 4px 0 0; max-width: 64ch; text-wrap: balance; }
+.detail { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.dhead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 10px 20px; }
+.dhead h2 { font-family: var(--font-display); font-weight: 500; font-size: 19px; margin: 0; }
+.dhead .hint { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button { font: inherit; font-weight: 500; font-size: 14px; cursor: pointer; border-radius: 8px; padding: 8px 13px; border: 1px solid var(--grid); background: var(--surface); color: var(--fg); min-height: 38px; }
+button[aria-pressed="true"] { border-color: var(--fg); box-shadow: inset 0 0 0 1px var(--fg); }
+button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: var(--btn-bg); }
+button:hover { filter: brightness(1.08); }
+:focus-visible { outline: 2px solid var(--hit); outline-offset: 2px; }
+.dbody { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+@media (min-width: 860px) { .dbody { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); } }
+.stats { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.big { font-family: var(--font-display); font-size: 44px; font-weight: 600; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.big small { font-size: 15px; font-weight: 500; color: var(--muted); margin-left: 6px; }
+.dev { font-size: 14px; font-variant-numeric: tabular-nums; }
+.dev.warn { color: var(--miss-text); font-weight: 600; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; font-size: 14px; margin: 0; font-variant-numeric: tabular-nums; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; text-align: right; font-weight: 500; }
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--grid); }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 500; font-size: 12.5px; }
+tr.sel td { font-weight: 600; }
+.price { font-size: 14px; color: var(--muted); margin: 0; }
+.price b { color: var(--fg); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; }
+.foot { color: var(--muted); font-size: 12.5px; margin: 0; max-width: 90ch; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Do 95% Intervals Cover 95%?</h1>
+    <p class="sub">Each cell is the share of 1,000,000 simulated samples whose nominal 95% interval for the mean contained the true mean. Click a cell to generate 100 fresh example intervals from the same model.</p>
+  </header>
+
+  <div class="maps">
+    <section class="card panel" aria-label="Coverage of the normal interval">
+      <h2>Normal interval, sample SD</h2>
+      <p class="formula">x̄ ± 1.96 · s/√n</p>
+      <div id="mapNormal"></div>
+    </section>
+    <section class="card panel" aria-label="Coverage of the Student t interval">
+      <h2>Student t interval</h2>
+      <p class="formula">x̄ ± t<sub>0.975, n−1</sub> · s/√n</p>
+      <div id="mapT"></div>
+    </section>
+  </div>
+
+  <div>
+    <div class="scale" id="scale"><div class="scalebar" id="scalebar"></div></div>
+    <div class="scalecap"><span>Orange: intervals miss the true mean too often</span><span>Blue: the procedure is conservative</span></div>
+  </div>
+
+  <p class="takeaway">A nominal 95% describes how the interval is built. What it actually covers depends on the data and on n, and a longer interval is often how a method pays for better coverage.</p>
+
+  <section class="card detail" aria-label="Example intervals for the selected cell">
+    <div class="dhead">
+      <div>
+        <h2 id="dtitle">–</h2>
+        <p class="hint">Each line is one sample's interval for the mean. The dashed line is the true mean.</p>
+      </div>
+      <div class="row">
+        <div class="row" id="methodBtns" role="group" aria-label="Interval method">
+          <button type="button" data-m="normal" aria-pressed="false">Normal</button>
+          <button type="button" data-m="t" aria-pressed="true">Student t</button>
+        </div>
+        <button type="button" id="redraw" class="primary">Draw 100 new samples</button>
+      </div>
+    </div>
+    <div class="dbody">
+      <div>
+        <div class="legend">
+          <span><i style="background: var(--hit)"></i>covers the true mean</span>
+          <span><i style="background: var(--miss)"></i>misses it</span>
+        </div>
+        <div id="example"></div>
+      </div>
+      <div class="stats" id="stats"></div>
+    </div>
+  </section>
+
+  <p class="foot" id="foot"></p>
+</div>
+
+<script>
+var DATA = {"reps":1000000,"ns":[5,10,20,50,100,300,1000],"dists":["normal","uniform","exponential","lognormal","t3"],"methods":["normal","t"],"cells":{"normal|5|normal":[0.87844,1.6475,0.06069,0.06087],"normal|5|t":[0.95026,2.3338,0.02488,0.02486],"normal|10|normal":[0.9183,1.2053,0.04079,0.0409],"normal|10|t":[0.94987,1.3911,0.02488,0.02524],"normal|20|normal":[0.9349,0.8651,0.03233,0.03278],"normal|20|t":[0.95001,0.9238,0.02489,0.0251],"normal|50|normal":[0.94423,0.5515,0.02776,0.028],"normal|50|t":[0.94981,0.5655,0.02497,0.02522],"normal|100|normal":[0.94715,0.391,0.02638,0.02646],"normal|100|t":[0.94996,0.3958,0.02497,0.02506],"normal|300|normal":[0.94944,0.2261,0.02522,0.02534],"normal|300|t":[0.95032,0.227,0.02478,0.0249],"normal|1000|normal":[0.94955,0.1239,0.02534,0.02511],"normal|1000|t":[0.94984,0.1241,0.0252,0.02496],"uniform|5|normal":[0.86986,1.6885,0.06496,0.06518],"uniform|5|t":[0.93434,2.392,0.03286,0.0328],"uniform|10|normal":[0.91574,1.2229,0.04204,0.04222],"uniform|10|t":[0.94553,1.4114,0.02717,0.0273],"uniform|20|normal":[0.93378,0.8714,0.03318,0.03304],"uniform|20|t":[0.94839,0.9305,0.02591,0.0257],"uniform|50|normal":[0.94358,0.5532,0.02819,0.02823],"uniform|50|t":[0.94927,0.5672,0.02536,0.02537],"uniform|100|normal":[0.94714,0.3916,0.02652,0.02634],"uniform|100|t":[0.94995,0.3965,0.0251,0.02495],"uniform|300|normal":[0.94881,0.2262,0.02549,0.0257],"uniform|300|t":[0.9497,0.2272,0.02502,0.02527],"uniform|1000|normal":[0.94968,0.1239,0.02532,0.02501],"uniform|1000|t":[0.94998,0.1241,0.02516,0.02486],"exponential|5|normal":[0.81192,1.5196,0.17308,0.015],"exponential|5|t":[0.88293,2.1527,0.11327,0.00379],"exponential|10|normal":[0.86958,1.1449,0.12067,0.00974],"exponential|10|t":[0.90053,1.3214,0.09545,0.00402],"exponential|20|normal":[0.9042,0.8398,0.08657,0.00924],"exponential|20|t":[0.91874,0.8968,0.0754,0.00586],"exponential|50|normal":[0.9294,0.5442,0.05925,0.01135],"exponential|50|t":[0.93496,0.558,0.05541,0.00962],"exponential|100|normal":[0.93917,0.3883,0.04735,0.01348],"exponential|100|t":[0.94188,0.3931,0.04567,0.01245],"exponential|300|normal":[0.94664,0.2256,0.03651,0.01685],"exponential|300|t":[0.9475,0.2265,0.03599,0.0165],"exponential|1000|normal":[0.9488,0.1238,0.03094,0.02027],"exponential|1000|t":[0.94906,0.124,0.03078,0.02017],"lognormal|5|normal":[0.74284,1.2521,0.25089,0.00628],"lognormal|5|t":[0.82055,1.7736,0.17824,0.00121],"lognormal|10|normal":[0.80661,0.9857,0.19023,0.00316],"lognormal|10|t":[0.83941,1.1376,0.1596,0.00099],"lognormal|20|normal":[0.85165,0.7516,0.1454,0.00295],"lognormal|20|t":[0.86695,0.8026,0.13147,0.00158],"lognormal|50|normal":[0.89433,0.508,0.10173,0.00394],"lognormal|50|t":[0.89998,0.5209,0.09686,0.00316],"lognormal|100|normal":[0.91468,0.3709,0.07986,0.00546],"lognormal|100|t":[0.91751,0.3755,0.07754,0.00495],"lognormal|300|normal":[0.93408,0.2207,0.05678,0.00914],"lognormal|300|t":[0.93499,0.2216,0.05614,0.00887],"lognormal|1000|normal":[0.9438,0.1228,0.04256,0.01364],"lognormal|1000|t":[0.94409,0.1229,0.04238,0.01354],"t3|5|normal":[0.8946,1.4297,0.05294,0.05246],"t3|5|t":[0.96227,2.0253,0.01899,0.01874],"t3|10|normal":[0.92842,1.0788,0.03586,0.03572],"t3|10|t":[0.95982,1.2451,0.02012,0.02006],"t3|20|normal":[0.94202,0.7955,0.02907,0.02891],"t3|20|t":[0.9569,0.8495,0.0216,0.0215],"t3|50|normal":[0.94869,0.5221,0.02563,0.02568],"t3|50|t":[0.95443,0.5353,0.0228,0.02276],"t3|100|normal":[0.94997,0.3755,0.02507,0.02496],"t3|100|t":[0.95288,0.3801,0.02359,0.02353],"t3|300|normal":[0.95093,0.2209,0.02456,0.02451],"t3|300|t":[0.9519,0.2218,0.02408,0.02402],"t3|1000|normal":[0.95061,0.1223,0.02482,0.02457],"t3|1000|t":[0.95092,0.1225,0.02467,0.02442]}};
+</script>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var NS = DATA.ns, DK = DATA.dists, R = DATA.reps, NOM = 0.95;
+  var LABEL = {
+    normal: ['Normal', 'N(0, 1)'], uniform: ['Uniform', 'U(0, 1)'], exponential: ['Exponential', 'rate 1'],
+    lognormal: ['Lognormal', 'σ = 1'], t3: ['Heavy tails', 't, 3 df']
+  };
+  var FULL = { normal: 'Normal', uniform: 'Uniform', exponential: 'Exponential', lognormal: 'Lognormal (σ = 1)', t3: 'Heavy-tailed (t, 3 df)' };
+  var MNAME = { normal: 'normal interval', t: 'Student t interval' };
+  var sel = { d: 'lognormal', n: 20, m: 't' };
+  var sample = null;                       // 100 samples: {xb:[], s:[]}
+  var geo = {};                            // cell geometry per map, for the selection frame
+
+  function cell(d, n, m) { var a = DATA.cells[d + '|' + n + '|' + m]; return { cov: a[0], len: a[1], lo: a[2], hi: a[3] }; }
+  function pct(v, k) { return (v * 100).toFixed(k === undefined ? 1 : k) + '%'; }
+  function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+  function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+  function hex(c) { c = c.replace('#', ''); return [parseInt(c.substr(0, 2), 16), parseInt(c.substr(2, 2), 16), parseInt(c.substr(4, 2), 16)]; }
+  function mix(a, b, t) { return [0, 1, 2].map(function (i) { return Math.round(a[i] + (b[i] - a[i]) * t); }); }
+  function rgb(c) { return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')'; }
+  function lum(c) { var f = c.map(function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * f[0] + 0.7152 * f[1] + 0.0722 * f[2]; }
+  function niceTicks(a, b, count) {
+    var raw = (b - a) / count, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p;
+    var step = (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p, t = [];
+    for (var v = Math.ceil(a / step - 1e-9) * step; v <= b + 1e-9; v += step) t.push(+v.toFixed(10));
+    return { t: t, dec: Math.max(0, -Math.floor(Math.log10(step) + 1e-9)) };
+  }
+
+  /* One color rule for every map: |deviation| up to 0.5 pp stays neutral, then the tint grows to full at about 25 pp. */
+  function colorFor(cov) {
+    var dev = (cov - NOM) * 100, a = Math.abs(dev), neutral = hex(css('--heat-neutral'));
+    var t = a <= 0.5 ? 0 : Math.min(1, Math.pow((a - 0.5) / 25, 0.55)) * 0.92;
+    var c = mix(neutral, hex(css(dev < 0 ? '--heat-under' : '--heat-over')), t);
+    return { bg: rgb(c), fg: lum(c) > 0.4 ? '#161a22' : '#ffffff' };
+  }
+
+  // ---------- Student t quantile (for the example panel) ----------
+  function lgamma(x) {
+    var c = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+    var y = x, t = x + 5.5, s = 1.000000000190015;
+    t -= (x + 0.5) * Math.log(t);
+    for (var j = 0; j < 6; j++) { y += 1; s += c[j] / y; }
+    return -t + Math.log(2.5066282746310005 * s / x);
+  }
+  function betacf(a, b, x) {
+    var FP = 1e-300, qab = a + b, qap = a + 1, qam = a - 1, c = 1, d = 1 - qab * x / qap;
+    if (Math.abs(d) < FP) d = FP;
+    d = 1 / d;
+    var h = d;
+    for (var m = 1; m <= 300; m++) {
+      var m2 = 2 * m, aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FP) d = FP;
+      c = 1 + aa / c; if (Math.abs(c) < FP) c = FP;
+      d = 1 / d; h *= d * c;
+      aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FP) d = FP;
+      c = 1 + aa / c; if (Math.abs(c) < FP) c = FP;
+      d = 1 / d;
+      var del = d * c; h *= del;
+      if (Math.abs(del - 1) < 3e-14) break;
+    }
+    return h;
+  }
+  function betai(a, b, x) {
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    var bt = Math.exp(lgamma(a + b) - lgamma(a) - lgamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+    return x < (a + 1) / (a + b + 2) ? bt * betacf(a, b, x) / a : 1 - bt * betacf(b, a, 1 - x) / b;
+  }
+  var tqCache = {};
+  function tq975(df) {
+    if (tqCache[df]) return tqCache[df];
+    var lo = 0, hi = 100;
+    for (var i = 0; i < 60; i++) {
+      var mid = (lo + hi) / 2;
+      if (0.5 * betai(df / 2, 0.5, df / (df + mid * mid)) > 0.025) lo = mid; else hi = mid;
+    }
+    return (tqCache[df] = (lo + hi) / 2);
+  }
+
+  // ---------- samplers, standardized to mean 0 and SD 1 ----------
+  var spare = null;
+  function norm() {
+    if (spare !== null) { var s = spare; spare = null; return s; }
+    var u = 1 - Math.random(), v = Math.random(), r = Math.sqrt(-2 * Math.log(u));
+    spare = r * Math.sin(2 * Math.PI * v);
+    return r * Math.cos(2 * Math.PI * v);
+  }
+  var LNSD = Math.sqrt((Math.E - 1) * Math.E), LNMEAN = Math.exp(0.5), S12 = Math.sqrt(12), S3 = Math.sqrt(3);
+  var GEN = {
+    normal: function () { return norm(); },
+    uniform: function () { return (Math.random() - 0.5) * S12; },
+    exponential: function () { return -Math.log(1 - Math.random()) - 1; },
+    lognormal: function () { return (Math.exp(norm()) - LNMEAN) / LNSD; },
+    t3: function () { var z = norm(), a = norm(), b = norm(), c = norm(); return z / Math.sqrt((a * a + b * b + c * c) / 3) / S3; }
+  };
+  function drawSamples() {
+    var g = GEN[sel.d], n = sel.n, xb = [], sd = [];
+    for (var k = 0; k < 100; k++) {
+      var sum = 0, sq = 0, i, x;
+      for (i = 0; i < n; i++) { x = g(); sum += x; sq += x * x; }
+      var m = sum / n;
+      xb.push(m); sd.push(Math.sqrt(Math.max(0, (sq - n * m * m) / (n - 1))));
+    }
+    sample = { d: sel.d, n: n, xb: xb, s: sd };
+  }
+  function intervals(method) {
+    var q = method === 'normal' ? 1.959964 : tq975(sample.n - 1), rn = Math.sqrt(sample.n);
+    return sample.xb.map(function (m, k) { var h = q * sample.s[k] / rn; return { lo: m - h, hi: m + h, c: m, hit: Math.abs(m) <= h }; });
+  }
+
+  // ---------- heatmaps ----------
+  function drawMap(el, method) {
+    var W = Math.max(280, el.clientWidth), narrow = W < 420;
+    var ml = narrow ? 74 : 104, mr = 4, top = 40, rh = 40, cw = (W - ml - mr) / NS.length, H = top + DK.length * rh + 4;
+    var withPct = cw >= 44, fs = cw < 36 ? 10.5 : 12;
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="group" aria-label="Coverage map, ' + MNAME[method] + '">';
+    s += '<text x="' + (ml + NS.length * cw / 2) + '" y="11" text-anchor="middle">Sample size n</text>';
+    NS.forEach(function (n, j) { s += '<text x="' + (ml + (j + 0.5) * cw) + '" y="30" text-anchor="middle" class="fg">' + n + '</text>'; });
+    DK.forEach(function (d, i) {
+      var y = top + i * rh;
+      s += '<text x="' + (ml - 8) + '" y="' + (y + rh / 2 + (narrow ? 4 : -1)) + '" text-anchor="end" class="fg">' + LABEL[d][0] + '</text>';
+      if (!narrow) s += '<text x="' + (ml - 8) + '" y="' + (y + rh / 2 + 13) + '" text-anchor="end" class="small">' + LABEL[d][1] + '</text>';
+      NS.forEach(function (n, j) {
+        var c = cell(d, n, method), col = colorFor(c.cov), x = ml + j * cw;
+        s += '<g class="cell" tabindex="0" role="button" data-d="' + d + '" data-n="' + n + '" data-m="' + method + '" aria-label="' + FULL[d] + ', n = ' + n + ', ' + MNAME[method] + ': coverage ' + pct(c.cov) + '">' +
+          '<rect x="' + (x + 1) + '" y="' + (y + 1) + '" width="' + (cw - 2) + '" height="' + (rh - 2) + '" rx="3" fill="' + col.bg + '"/>' +
+          '<text x="' + (x + cw / 2) + '" y="' + (y + rh / 2 + 4) + '" text-anchor="middle" style="fill:' + col.fg + ';font-size:' + fs + 'px;font-weight:500">' + (c.cov * 100).toFixed(1) + (withPct ? '%' : '') + '</text></g>';
+      });
+    });
+    s += '<rect class="selframe" x="0" y="0" width="0" height="0" rx="4" fill="none" stroke="var(--fg)" stroke-width="3" pointer-events="none" style="display:none"/>';
+    el.innerHTML = s + '</svg>';
+    geo[method] = { ml: ml, top: top, cw: cw, rh: rh, el: el };
+  }
+  function markSel() {
+    ['normal', 't'].forEach(function (m) {
+      var g = geo[m], f = g && g.el.querySelector('.selframe');
+      if (!f) return;
+      if (m !== sel.m) { f.style.display = 'none'; return; }
+      var i = DK.indexOf(sel.d), j = NS.indexOf(sel.n);
+      f.setAttribute('x', g.ml + j * g.cw + 0.5); f.setAttribute('y', g.top + i * g.rh + 0.5);
+      f.setAttribute('width', g.cw - 1); f.setAttribute('height', g.rh - 1);
+      f.style.display = '';
+      f.parentNode.appendChild(f);
+    });
+  }
+  function drawScale() {
+    var box = $("scale"), a = 0.70, b = 1.0, stops = [];
+    for (var i = 0; i <= 30; i++) { var v = a + (b - a) * i / 30; stops.push(colorFor(v).bg + ' ' + (i / 30 * 100).toFixed(1) + '%'); }
+    $("scalebar").style.background = 'linear-gradient(to right,' + stops.join(',') + ')';
+    Array.prototype.slice.call(box.querySelectorAll('.t,.tick')).forEach(function (e) { e.remove(); });
+    [[0.7, '70%'], [0.8, '80%'], [0.9, '90%'], [0.95, '95% nominal'], [1, '100%']].forEach(function (p, k, arr) {
+      var left = (p[0] - a) / (b - a) * 100;
+      var t = document.createElement('span');
+      t.className = 't' + (k === 0 ? ' first' : k === arr.length - 1 ? ' last' : '') + (p[0] === 0.95 ? ' nom' : '');
+      t.style.left = left + '%'; t.textContent = p[1];
+      box.appendChild(t);
+      if (p[0] === 0.95) { var tk = document.createElement('span'); tk.className = 'tick'; tk.style.left = left + '%'; box.appendChild(tk); }
+    });
+  }
+
+  // ---------- example: 100 intervals ----------
+  function drawExample() {
+    var el = $("example"), W = Math.max(260, el.clientWidth), ml = 12, mr = 12, top = 26, rh = 5.2, axisY = top + 100 * rh + 8, H = axisY + 44;
+    var iv = intervals(sel.m), other = intervals(sel.m === 'normal' ? 't' : 'normal');
+    var ext = iv.concat(other).map(function (v) { return Math.max(Math.abs(v.lo), Math.abs(v.hi)); }).sort(function (a, b) { return a - b; });
+    var dom = Math.max(0.05, ext[Math.floor(ext.length * 0.97)] * 1.06);
+    var xs = function (v) { return ml + (clamp(v, -dom, dom) + dom) / (2 * dom) * (W - ml - mr); };
+    var tk = niceTicks(-dom, dom, 5);
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="100 example confidence intervals">';
+    tk.t.forEach(function (t) {
+      s += '<line x1="' + xs(t) + '" x2="' + xs(t) + '" y1="' + top + '" y2="' + axisY + '" stroke="var(--grid)"/>';
+      s += '<text x="' + xs(t) + '" y="' + (axisY + 16) + '" text-anchor="middle">' + t.toFixed(tk.dec) + '</text>';
+    });
+    s += '<line x1="' + ml + '" x2="' + (W - mr) + '" y1="' + axisY + '" y2="' + axisY + '" stroke="var(--muted)"/>';
+    s += '<text x="' + ((ml + W - mr) / 2) + '" y="' + (axisY + 36) + '" text-anchor="middle">Position, in units of the population SD σ</text>';
+    var hits = 0;
+    iv.forEach(function (v, k) {
+      var y = top + (k + 0.5) * rh, col = v.hit ? 'var(--hit)' : 'var(--miss)', x1 = xs(v.lo), x2 = xs(v.hi);
+      if (v.hit) hits++;
+      s += '<line x1="' + x1 + '" x2="' + x2 + '" y1="' + y + '" y2="' + y + '" stroke="' + col + '" stroke-width="' + (v.hit ? 2 : 2.6) + '" stroke-opacity="' + (v.hit ? 0.7 : 1) + '" stroke-linecap="round"/>';
+      s += '<circle cx="' + xs(v.c) + '" cy="' + y + '" r="1.7" fill="var(--surface)"/>';
+      if (v.lo < -dom) s += '<path d="M' + (ml + 5) + ' ' + (y - 2.6) + 'L' + ml + ' ' + y + 'L' + (ml + 5) + ' ' + (y + 2.6) + 'Z" fill="' + col + '"/>';
+      if (v.hi > dom) s += '<path d="M' + (W - mr - 5) + ' ' + (y - 2.6) + 'L' + (W - mr) + ' ' + y + 'L' + (W - mr - 5) + ' ' + (y + 2.6) + 'Z" fill="' + col + '"/>';
+    });
+    s += '<line x1="' + xs(0) + '" x2="' + xs(0) + '" y1="' + (top - 6) + '" y2="' + axisY + '" stroke="var(--fg)" stroke-width="1.6" stroke-dasharray="5 4"/>';
+    s += '<text x="' + xs(0) + '" y="12" text-anchor="middle" class="fg">true mean</text>';
+    el.innerHTML = s + '</svg>';
+    return hits;
+  }
+
+  function renderDetail() {
+    var hits = drawExample();
+    var c = cell(sel.d, sel.n, sel.m), cn = cell(sel.d, sel.n, 'normal'), ct = cell(sel.d, sel.n, 't');
+    var dev = (c.cov - NOM) * 100, me = 1.96 * Math.sqrt(c.cov * (1 - c.cov) / R) * 100;
+    var swing = Math.sqrt(c.cov * (1 - c.cov) / 100) * 100;
+    $("dtitle").textContent = FULL[sel.d] + ', n = ' + sel.n;
+    var devTxt = Math.abs(dev) < 0.5 ? 'Close to the nominal 95%' : (dev < 0 ? 'Below the nominal 95% by ' : 'Above the nominal 95% by ') + Math.abs(dev).toFixed(1) + ' pp';
+    var wider = ct.len / cn.len - 1, gain = (ct.cov - cn.cov) * 100;
+    var price;
+    if (sel.n <= 1) price = '';
+    else price = 'Here the t interval is <b>' + (wider * 100).toFixed(wider < 0.1 ? 1 : 0) + '%</b> longer than the normal one and its coverage is <b>' + (gain >= 0 ? '+' : '−') + Math.abs(gain).toFixed(1) + ' pp</b> ' + (gain >= 0 ? 'higher' : 'lower') + '.';
+    $("stats").innerHTML =
+      '<div><div class="big">' + pct(c.cov) + '<small>' + MNAME[sel.m] + '</small></div>' +
+      '<div class="dev' + (dev < -2 ? ' warn' : '') + '">' + devTxt + '</div></div>' +
+      '<dl class="kv">' +
+      '<dt>Approximate 95% Monte Carlo margin</dt><dd>± ' + me.toFixed(2) + ' pp (' + R.toLocaleString('en-US') + ' samples)</dd>' +
+      '<dt>Average length</dt><dd>' + c.len.toFixed(c.len < 1 ? 3 : 2) + ' σ</dd>' +
+      '<dt>Misses: interval too low</dt><dd>' + pct(c.lo) + '</dd>' +
+      '<dt>Misses: interval too high</dt><dd>' + pct(c.hi) + '</dd>' +
+      '<dt>In the 100 shown</dt><dd>' + hits + ' covered, ' + (100 - hits) + ' missed</dd></dl>' +
+      '<p class="price" style="margin-top:-6px">Expected count in 100 fresh samples: ' + (c.cov * 100).toFixed(1) + '. The standard deviation of this count is about ' + swing.toFixed(1) + '.</p>' +
+      '<table><thead><tr><th>Method</th><th>Coverage</th><th>Avg length</th></tr></thead><tbody>' +
+      '<tr' + (sel.m === 'normal' ? ' class="sel"' : '') + '><td>Normal</td><td>' + pct(cn.cov) + '</td><td>' + cn.len.toFixed(cn.len < 1 ? 3 : 2) + ' σ</td></tr>' +
+      '<tr' + (sel.m === 't' ? ' class="sel"' : '') + '><td>Student t</td><td>' + pct(ct.cov) + '</td><td>' + ct.len.toFixed(ct.len < 1 ? 3 : 2) + ' σ</td></tr></tbody></table>' +
+      '<p class="price">' + price + '</p>';
+    var b = document.querySelectorAll("#methodBtns button");
+    for (var i = 0; i < b.length; i++) b[i].setAttribute("aria-pressed", String(b[i].dataset.m === sel.m));
+    markSel();
+  }
+
+  function renderAll() {
+    drawMap($("mapNormal"), 'normal'); drawMap($("mapT"), 't'); drawScale(); markSel();
+    if (sample) renderDetail();
+  }
+
+  function choose(d, n, m, fresh) {
+    var changed = sel.d !== d || sel.n !== n;
+    sel = { d: d, n: n, m: m };
+    if (fresh || changed || !sample) drawSamples();
+    renderDetail();
+  }
+
+  Array.prototype.forEach.call([$("mapNormal"), $("mapT")], function (host) {
+    host.addEventListener("click", function (e) {
+      var g = e.target.closest && e.target.closest('.cell');
+      if (g) choose(g.dataset.d, +g.dataset.n, g.dataset.m, true);
+    });
+    host.addEventListener("keydown", function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      var g = e.target.closest && e.target.closest('.cell');
+      if (g) { e.preventDefault(); choose(g.dataset.d, +g.dataset.n, g.dataset.m, true); }
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("#methodBtns button"), function (b) {
+    b.addEventListener("click", function () { choose(sel.d, sel.n, b.dataset.m, false); });
+  });
+  $("redraw").addEventListener("click", function () { choose(sel.d, sel.n, sel.m, true); });
+
+  var rt;
+  window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(renderAll, 80); });
+  if (window.matchMedia) {
+    var mq = window.matchMedia("(prefers-color-scheme: dark)");
+    (mq.addEventListener ? mq.addEventListener.bind(mq, "change") : mq.addListener.bind(mq))(renderAll);
+  }
+  new MutationObserver(renderAll).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  $("foot").textContent =  'Precomputed simulation results supplied with this visualization: ' + R.toLocaleString('en-US') + ' samples per cell, coverage of the true mean. Fresh examples are centered and scaled to population mean 0 and standard deviation 1. Lengths are in units of each distribution\'s own standard deviation σ, so they can be compared across rows. "Too low" means the whole interval lies below the true mean. The t distribution with 3 degrees of freedom has finite variance but infinite kurtosis.';
+  drawSamples();
+  renderAll();
+})();
+</script>
+
+</body></html>

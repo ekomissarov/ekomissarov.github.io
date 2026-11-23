@@ -232,6 +232,8 @@ Choosing an upper bound of $1$ for $M/\theta$ minimizes the length of the parame
 
 ## Conditions for Applicability
 
+[Explore whether nominal 95% intervals achieve 95% coverage](/visualizations/do-95-intervals-cover-95/). Compare normal and Student's t intervals across sample sizes and distributions, then draw fresh example intervals for a selected case.
+
 Exactness refers to coverage under the assumed model at finite $n$. Asymptotic results require the assumptions of the relevant limit theorem; there is no universal sample-size threshold. The absence of visible outliers does not guarantee finite moments or independence. For the mean, finite positive variance is sufficient; the asymptotic variance interval given above requires a finite fourth moment and a nondegenerate limiting distribution.
 
 Failure to reject a normality test does not establish normality. The model should be justified using the nature of the data, the sampling design, and diagnostics; a preliminary normality test is not a mandatory condition for using a $t$ interval.
