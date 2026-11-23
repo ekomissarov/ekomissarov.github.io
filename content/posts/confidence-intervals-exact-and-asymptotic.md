@@ -75,6 +75,8 @@ The normal interval has half-width $z_{1-\alpha/2}\sigma/\sqrt n$: quadrupling $
 
 ## Confidence and Prediction Intervals
 
+[Compare confidence and prediction intervals](/visualizations/confidence-and-prediction-intervals/). Increase the sample size to compare their widths, then draw new observations and see where they fall.
+
 A confidence interval estimates a parameter. A prediction interval is intended for a new random observation; its endpoints may also depend on the data.
 
 For an i.i.d. sample from $N(\mu,\sigma^2)$ with unknown parameters and a new independent observation from the same model:
