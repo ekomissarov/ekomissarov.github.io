@@ -47,6 +47,8 @@ $$
 
 ## The Mean: Normal-Model and Asymptotic Intervals
 
+[Compare Student's t and the standard normal distribution](/visualizations/student-t-versus-normal/). Change the degrees of freedom to compare their tails and central 95% bounds at the same standard error.
+
 | Assumptions | Interval for $\mu$ | Status |
 | :--- | :--- | :--- |
 | i.i.d. $N(\mu,\sigma^2)$, known $\sigma$, $n\ge1$ | $\bar X\pm z_{1-\alpha/2}\sigma/\sqrt n$ | Exact |

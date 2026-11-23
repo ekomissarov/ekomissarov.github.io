@@ -1,0 +1,352 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Student t versus Normal</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: slider and presets on top, a wide density chart with a log-scale right-tail zoom beside it (stacks on phones), exact quantile readouts underneath. */
+:root {
+  --bg: #f5f4f7;
+  --surface: #ffffff;
+  --fg: #1c1a26;
+  --muted: #5d596b;
+  --grid: #e5e2ec;
+  --gray: #6a6779;
+  --accent: #c2185b;
+  --btn-bg: #1c1a26;
+  --btn-fg: #ffffff;
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #131119;
+    --surface: #1c1924;
+    --fg: #ece9f3;
+    --muted: #a39fb3;
+    --grid: #2d2a38;
+    --gray: #9d99ae;
+    --accent: #ff7fae;
+    --btn-bg: #ece9f3;
+    --btn-fg: #131119;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #131119;
+  --surface: #1c1924;
+  --fg: #ece9f3;
+  --muted: #a39fb3;
+  --grid: #2d2a38;
+  --gray: #9d99ae;
+  --accent: #ff7fae;
+  --btn-bg: #ece9f3;
+  --btn-fg: #131119;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.5;
+  padding-block: 28px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+h1 { font-family: var(--font-display); font-weight: 600; font-size: clamp(24px, 4vw, 32px); line-height: 1.15; margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+.sub { color: var(--muted); margin: 6px 0 0; max-width: 64ch; }
+.card { background: var(--surface); border: 1px solid var(--grid); border-radius: 12px; }
+.controls { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
+.slider-row { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; }
+.slider { flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.slider label { display: flex; justify-content: space-between; align-items: baseline; font-weight: 500; }
+.slider output { font-family: var(--font-display); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--accent); }
+input[type="range"] { width: 100%; accent-color: var(--accent); margin: 0; height: 28px; }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.btns .lbl { color: var(--muted); font-size: 13px; margin-right: 2px; }
+button { font: inherit; font-weight: 500; cursor: pointer; border-radius: 8px; padding: 8px 13px; border: 1px solid var(--grid); background: var(--surface); color: var(--fg); min-width: 44px; }
+button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+button.primary { background: var(--btn-bg); color: var(--btn-fg); border-color: var(--btn-bg); padding-inline: 18px; }
+button:hover { filter: brightness(1.07); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 20px; }
+.panels .main { grid-column: span 1; }
+@media (min-width: 900px) { .panels { grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr); } }
+.panel { padding: 16px 16px 12px; min-width: 0; }
+.panel h2 { font-family: var(--font-display); font-weight: 500; font-size: 17px; margin: 0 0 2px; }
+.panel .hint { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { display: inline-block; width: 18px; height: 0; border-top: 3px solid; border-radius: 2px; }
+.legend i.dash { border-top: 2px dashed; }
+.legend i.fill { height: 10px; border: 0; background: var(--accent); opacity: .3; border-radius: 2px; }
+svg { display: block; width: 100%; overflow: visible; }
+svg text { font-family: var(--font-body); font-size: 12px; fill: var(--muted); }
+svg text.acc { fill: var(--accent); font-weight: 600; }
+svg text.gry { fill: var(--gray); font-weight: 500; }
+.readouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.readout { padding: 10px 14px; min-width: 0; border-radius: 10px; }
+.readout .k { font-size: 12px; color: var(--muted); }
+.readout .v { font-family: var(--font-display); font-size: 22px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.readout.t .v, .readout.gap .v { color: var(--accent); }
+.note { color: var(--muted); font-size: 13.5px; margin: 0; max-width: 70ch; font-variant-numeric: tabular-nums; }
+.note b { color: var(--fg); font-weight: 600; }
+.takeaway { font-family: var(--font-display); font-size: clamp(17px, 2.6vw, 20px); font-weight: 500; line-height: 1.35; margin: 4px 0 0; max-width: 62ch; text-wrap: balance; }
+sub { font-size: 0.75em; line-height: 0; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Student t versus Normal</h1>
+    <p class="sub">Move the degrees of freedom ν and watch the central 95% bounds of the t distribution settle toward ±1.96.</p>
+  </header>
+
+  <section class="card controls" aria-label="Controls">
+    <div class="slider-row">
+      <div class="slider">
+        <label for="nu">Degrees of freedom <output id="nuOut" for="nu">9</output></label>
+        <input id="nu" type="range" min="0" max="26" step="1" value="8">
+      </div>
+      <div class="btns">
+        <button id="play" class="primary" type="button">Play</button>
+      </div>
+    </div>
+    <div class="btns" id="presets" role="group" aria-label="Preset values of ν">
+      <span class="lbl">Presets ν =</span>
+    </div>
+  </section>
+
+  <div class="panels">
+    <section class="card panel main">
+      <h2>Density and central 95%</h2>
+      <p class="hint">Shaded tails hold 2.5% of the probability on each side.</p>
+      <div class="legend">
+        <span><i class="dash" style="border-color: var(--gray)"></i>Normal N(0, 1)</span>
+        <span><i style="border-color: var(--accent)"></i><i style="display:none"></i>Student <em>t</em><sub>ν</sub></span>
+        <span><i class="fill"></i>2.5% tail of <em>t</em><sub>ν</sub></span>
+      </div>
+      <div id="main"></div>
+    </section>
+
+    <section class="card panel zoom">
+      <h2>Right tail, zoomed</h2>
+      <p class="hint">Log scale: each gridline is 10 times lower than the one above.</p>
+      <div id="zoom"></div>
+    </section>
+  </div>
+
+  <section class="readouts" aria-label="Current values" aria-live="polite">
+    <div class="card readout"><div class="k">Degrees of freedom</div><div class="v" id="rNu">9</div></div>
+    <div class="card readout"><div class="k">Normal quantile</div><div class="v" id="rZ">1.960</div></div>
+    <div class="card readout t"><div class="k">t quantile</div><div class="v" id="rT">2.262</div></div>
+    <div class="card readout gap"><div class="k">Half-width larger by</div><div class="v" id="rGap">15.4%</div></div>
+  </section>
+  <p class="note" id="note"></p>
+
+  <p class="takeaway">With few degrees of freedom the t distribution has heavier tails, so the same 95% needs wider bounds.</p>
+</div>
+
+<script>
+(function () {
+  var NUS = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,25,30,40,50,60,80,100];
+  var PRESETS = [1, 2, 5, 9, 30, 100];
+  var idx = NUS.indexOf(9), qcache = {}, timer = null;
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ---- math ----
+  function lgamma(x) {
+    var c = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+    var y = x, t = x + 5.5, s = 1.000000000190015;
+    t -= (x + 0.5) * Math.log(t);
+    for (var j = 0; j < 6; j++) { y += 1; s += c[j] / y; }
+    return -t + Math.log(2.5066282746310005 * s / x);
+  }
+  function betacf(a, b, x) {
+    var FP = 1e-300, qab = a + b, qap = a + 1, qam = a - 1, c = 1, d = 1 - qab * x / qap;
+    if (Math.abs(d) < FP) d = FP;
+    d = 1 / d;
+    var h = d;
+    for (var m = 1; m <= 300; m++) {
+      var m2 = 2 * m, aa = m * (b - m) * x / ((qam + m2) * (a + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FP) d = FP;
+      c = 1 + aa / c; if (Math.abs(c) < FP) c = FP;
+      d = 1 / d; h *= d * c;
+      aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2));
+      d = 1 + aa * d; if (Math.abs(d) < FP) d = FP;
+      c = 1 + aa / c; if (Math.abs(c) < FP) c = FP;
+      d = 1 / d;
+      var del = d * c; h *= del;
+      if (Math.abs(del - 1) < 3e-14) break;
+    }
+    return h;
+  }
+  function betai(a, b, x) {
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    var bt = Math.exp(lgamma(a + b) - lgamma(a) - lgamma(b) + a * Math.log(x) + b * Math.log(1 - x));
+    return x < (a + 1) / (a + b + 2) ? bt * betacf(a, b, x) / a : 1 - bt * betacf(b, a, 1 - x) / b;
+  }
+  function tTail(t, nu) { return 0.5 * betai(nu / 2, 0.5, nu / (nu + t * t)); }   // P(T > t), t >= 0
+  function tQuant(nu) {                                                           // t_{0.975, nu}
+    if (qcache[nu]) return qcache[nu];
+    var lo = 0, hi = 1e4;
+    for (var i = 0; i < 200; i++) {
+      var mid = (lo + hi) / 2;
+      if (tTail(mid, nu) > 0.025) lo = mid; else hi = mid;
+    }
+    return (qcache[nu] = (lo + hi) / 2);
+  }
+  function tPdf(x, nu) {
+    return Math.exp(lgamma((nu + 1) / 2) - lgamma(nu / 2) - 0.5 * Math.log(nu * Math.PI) - (nu + 1) / 2 * Math.log(1 + x * x / nu));
+  }
+  function nPdf(x) { return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI); }
+  var Z975 = 1.959963984540054;
+
+  function curve(pdf, xs, ys, a, b, steps) {
+    var d = '';
+    for (var i = 0; i <= steps; i++) {
+      var x = a + (b - a) * i / steps;
+      d += (i ? 'L' : 'M') + xs(x).toFixed(1) + ' ' + ys(pdf(x)).toFixed(1);
+    }
+    return d;
+  }
+  function area(pdf, xs, ys, a, b, base) {
+    return curve(pdf, xs, ys, a, b, 60) + 'L' + xs(b).toFixed(1) + ' ' + base + 'L' + xs(a).toFixed(1) + ' ' + base + 'Z';
+  }
+
+  // ---- main chart ----
+  function drawMain(nu, q) {
+    var el = $("main"), W = Math.max(280, el.clientWidth), H = 360;
+    var ml = 40, mr = 16, top = 30, bot = 58, ph = H - top - bot, pw = W - ml - mr, XM = 5, YM = 0.42;
+    var xs = function (x) { return ml + (x + XM) / (2 * XM) * pw; };
+    var ys = function (v) { return top + (1 - v / YM) * ph; };
+    var base = ys(0).toFixed(1);
+    var tp = function (x) { return tPdf(x, nu); };
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Normal and Student t densities with central 95% bounds">';
+    for (var v = 0; v <= 0.4001; v += 0.1) {
+      s += '<line x1="' + ml + '" x2="' + (W - mr) + '" y1="' + ys(v) + '" y2="' + ys(v) + '" stroke="var(--grid)"/>';
+      s += '<text x="' + (ml - 8) + '" y="' + (ys(v) + 4) + '" text-anchor="end">' + v.toFixed(1) + '</text>';
+    }
+    // tail shading
+    var inView = q < XM;
+    if (inView) {
+      s += '<path d="' + area(tp, xs, ys, q, XM, base) + '" fill="var(--accent)" fill-opacity="0.3"/>';
+      s += '<path d="' + area(tp, xs, ys, -XM, -q, base) + '" fill="var(--accent)" fill-opacity="0.3"/>';
+    }
+    s += '<path d="' + area(nPdf, xs, ys, Z975, XM, base) + '" fill="var(--gray)" fill-opacity="0.22"/>';
+    s += '<path d="' + area(nPdf, xs, ys, -XM, -Z975, base) + '" fill="var(--gray)" fill-opacity="0.22"/>';
+    // curves
+    s += '<path d="' + curve(nPdf, xs, ys, -XM, XM, 200) + '" fill="none" stroke="var(--gray)" stroke-width="2" stroke-dasharray="6 5"/>';
+    s += '<path d="' + curve(tp, xs, ys, -XM, XM, 200) + '" fill="none" stroke="var(--accent)" stroke-width="2.75" stroke-linejoin="round"/>';
+    // axis
+    s += '<line x1="' + ml + '" x2="' + (W - mr) + '" y1="' + base + '" y2="' + base + '" stroke="var(--muted)"/>';
+    [-4, -2, 0, 2, 4].forEach(function (t) {
+      s += '<text x="' + xs(t) + '" y="' + (+base + 17) + '" text-anchor="middle">' + t + '</text>';
+    });
+    // normal bounds
+    [-1, 1].forEach(function (sg) {
+      var x = xs(sg * Z975);
+      s += '<line x1="' + x + '" x2="' + x + '" y1="' + (top - 4) + '" y2="' + base + '" stroke="var(--gray)" stroke-width="1.5" stroke-dasharray="4 4"/>';
+      s += '<text x="' + x + '" y="' + (+base + 36) + '" text-anchor="middle" class="gry">' + (sg < 0 ? '−' : '+') + '1.960</text>';
+    });
+    // t bounds
+    [-1, 1].forEach(function (sg) {
+      var qq = Math.min(q, XM - 0.02), x = xs(sg * qq), off = q >= XM;
+      s += '<line x1="' + x + '" x2="' + x + '" y1="' + (top - 4) + '" y2="' + base + '" stroke="var(--accent)" stroke-width="2"' + (off ? ' stroke-dasharray="2 4"' : '') + '/>';
+      var lab = (sg < 0 ? '−' : '+') + q.toFixed(3);
+      var txt = off ? (sg < 0 ? '← ' + lab : lab + ' →') : lab;
+      var anchor = off ? (sg < 0 ? 'start' : 'end') : 'middle';
+      var tx = off ? (sg < 0 ? ml + 2 : W - mr - 2) : x;
+      s += '<text x="' + tx + '" y="14" text-anchor="' + anchor + '" class="acc">' + txt + '</text>';
+    });
+    s += '</svg>';
+    el.innerHTML = s;
+  }
+
+  // ---- zoom chart (right tail, log y) ----
+  function drawZoom(nu, q) {
+    var el = $("zoom"), W = Math.max(240, el.clientWidth), H = 360;
+    var ml = 46, mr = 12, top = 30, bot = 58, ph = H - top - bot, pw = W - ml - mr;
+    var X0 = 1.5, X1 = 5, LMAX = Math.log10(0.2), LMIN = -6;
+    var xs = function (x) { return ml + (x - X0) / (X1 - X0) * pw; };
+    var ys = function (v) { return top + (LMAX - Math.log10(Math.max(v, 1e-6))) / (LMAX - LMIN) * ph; };
+    var base = ys(1e-6).toFixed(1);
+    var tp = function (x) { return tPdf(x, nu); };
+    var sup = { '-1': '10⁻¹', '-2': '10⁻²', '-3': '10⁻³', '-4': '10⁻⁴', '-5': '10⁻⁵', '-6': '10⁻⁶' };
+    var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Right tail of the normal and Student t densities on a log scale">';
+    for (var e = -1; e >= -6; e--) {
+      var y = ys(Math.pow(10, e));
+      s += '<line x1="' + ml + '" x2="' + (W - mr) + '" y1="' + y + '" y2="' + y + '" stroke="var(--grid)"/>';
+      s += '<text x="' + (ml - 8) + '" y="' + (y + 4) + '" text-anchor="end">' + sup[e] + '</text>';
+    }
+    if (q < X1) s += '<path d="' + area(tp, xs, ys, q, X1, base) + '" fill="var(--accent)" fill-opacity="0.25"/>';
+    s += '<path d="' + area(nPdf, xs, ys, Z975, X1, base) + '" fill="var(--gray)" fill-opacity="0.2"/>';
+    s += '<path d="' + curve(nPdf, xs, ys, X0, X1, 120) + '" fill="none" stroke="var(--gray)" stroke-width="2" stroke-dasharray="6 5"/>';
+    s += '<path d="' + curve(tp, xs, ys, X0, X1, 120) + '" fill="none" stroke="var(--accent)" stroke-width="2.75" stroke-linejoin="round"/>';
+    s += '<line x1="' + ml + '" x2="' + (W - mr) + '" y1="' + base + '" y2="' + base + '" stroke="var(--muted)"/>';
+    [2, 3, 4, 5].forEach(function (t) {
+      s += '<text x="' + xs(t) + '" y="' + (+base + 17) + '" text-anchor="middle">' + t + '</text>';
+    });
+    s += '<text x="' + ((ml + W - mr) / 2) + '" y="' + (+base + 36) + '" text-anchor="middle">x</text>';
+    // bounds
+    var xn = xs(Z975);
+    s += '<line x1="' + xn + '" x2="' + xn + '" y1="' + (top - 4) + '" y2="' + base + '" stroke="var(--gray)" stroke-width="1.5" stroke-dasharray="4 4"/>';
+    s += '<text x="' + (xn - 4) + '" y="14" text-anchor="end" class="gry">1.960</text>';
+    var off = q >= X1, qq = Math.min(q, X1 - 0.02), xt = xs(qq);
+    s += '<line x1="' + xt + '" x2="' + xt + '" y1="' + (top - 4) + '" y2="' + base + '" stroke="var(--accent)" stroke-width="2"' + (off ? ' stroke-dasharray="2 4"' : '') + '/>';
+    s += '<text x="' + (off ? W - mr - 2 : xt + 4) + '" y="14" text-anchor="' + (off ? 'end' : 'start') + '" class="acc">' + q.toFixed(3) + (off ? ' →' : '') + '</text>';
+    s += '</svg>';
+    el.innerHTML = s;
+  }
+
+  function render() {
+    var nu = NUS[idx], q = tQuant(nu), gap = (q / Z975 - 1) * 100;
+    $("nu").value = idx;
+    $("nuOut").textContent = nu;
+    $("rNu").textContent = nu;
+    $("rZ").textContent = Z975.toFixed(3);
+    $("rT").textContent = q.toFixed(3);
+    $("rGap").textContent = gap.toFixed(1) + '%';
+    var beyond = 2 * tTail(Z975, nu) * 100;
+    $("note").innerHTML = 'Compared at the same standard error: both intervals are estimate ± quantile × SE. ' +
+      'With ν = <b>' + nu + '</b>, the area of <i>t</i> beyond ±1.960 is <b>' + beyond.toFixed(1) + '%</b>, not 5%.';
+    var btns = document.querySelectorAll("#presets button");
+    for (var i = 0; i < btns.length; i++) btns[i].setAttribute("aria-pressed", String(+btns[i].dataset.nu === nu));
+    drawMain(nu, q);
+    drawZoom(nu, q);
+  }
+
+  // ---- controls ----
+  PRESETS.forEach(function (p) {
+    var b = document.createElement("button");
+    b.type = "button"; b.textContent = p; b.dataset.nu = p;
+    b.addEventListener("click", function () { stop(); idx = NUS.indexOf(p); render(); });
+    $("presets").appendChild(b);
+  });
+  $("nu").addEventListener("input", function (e) { stop(); idx = parseInt(e.target.value, 10); render(); });
+
+  function stop() {
+    if (timer) { clearInterval(timer); timer = null; }
+    $("play").textContent = "Play";
+  }
+  $("play").addEventListener("click", function () {
+    if (timer) { stop(); return; }
+    if (idx >= NUS.length - 1) idx = 0;
+    $("play").textContent = "Pause";
+    render();
+    timer = setInterval(function () {
+      if (idx >= NUS.length - 1) { stop(); return; }
+      idx++; render();
+      if (idx >= NUS.length - 1) stop();
+    }, 520);
+  });
+  var rt;
+  window.addEventListener("resize", function () { clearTimeout(rt); rt = setTimeout(render, 60); });
+
+  render();
+})();
+</script>
+
+</body></html>
