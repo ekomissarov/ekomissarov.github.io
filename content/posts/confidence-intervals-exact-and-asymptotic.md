@@ -109,6 +109,8 @@ When $g'(\mu)=0$, this formula does not yield the usual nondegenerate normal app
 
 ## Difference of Means for Independent Samples
 
+[Compare pooled and Welch interval coverage](/visualizations/pooled-vs-welch-coverage/). Change group sizes and variances to compare coverage and average interval length across repeated normal samples.
+
 Suppose the samples $X_1,\dots,X_n$ and $Y_1,\dots,Y_m$ are independent of each other, with i.i.d. observations within each group. Write $\widehat\Delta=\bar X-\bar Y$, $\Delta=\mu_X-\mu_Y$. Then
 
 $$
